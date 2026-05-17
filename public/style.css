@@ -50,12 +50,6 @@ body {
     line-height: 1.6;
     min-height: 100vh;
     overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.main-content {
-    flex: 1 0 auto;
 }
 
 /* ── Animated Background ──────────────────────────────────────────────────── */
@@ -115,14 +109,13 @@ body {
     position: sticky;
     top: 0;
     z-index: 50;
-    background: rgba(5, 5, 5, 0.2);
+    background: rgba(5, 5, 5, 0.7);
     backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--glass-border);
 }
 
 .header-inner {
-    max-width: 1800px;
+    max-width: 1200px;
     margin: 0 auto;
     display: flex;
     align-items: center;
@@ -181,9 +174,9 @@ body {
 /* ── Main Container ───────────────────────────────────────────────────────── */
 
 .container {
-    max-width: 1800px;
-    margin: 0 auto;
-    padding: 2rem 1.5rem;
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
 }
 
 /* ── Settings Modal ───────────────────────────────────────────────────────── */
@@ -898,43 +891,75 @@ body {
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 .footer {
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    background: rgba(5, 5, 5, 0.2);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    padding: 1.5rem 2rem;
-    margin-top: auto;
-    flex-shrink: 0;
+    padding: 3rem 1.5rem 1.5rem;
+    border-top: 1px solid var(--glass-border);
+    margin-top: 4rem;
+    background: linear-gradient(to bottom, transparent, rgba(10, 15, 30, 0.5));
 }
 
-.footer-content {
-    max-width: 1800px;
+.footer-inner {
+    max-width: 1200px;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.8rem;
-    color: var(--text-muted);
+    flex-wrap: wrap;
+    gap: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .footer-left {
     display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.footer-logo {
+    display: flex;
     align-items: center;
     gap: 0.5rem;
     font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 1.1rem;
     color: var(--text-bright);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    letter-spacing: -0.02em;
 }
 
-.footer-right {
+.footer-logo svg {
+    color: var(--accent);
+}
+
+.footer-left p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.footer-links {
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
-.footer-right .dot {
-    color: rgba(255,255,255,0.15);
+.footer-links a {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.footer-links a:hover {
+    color: var(--accent);
+}
+
+.footer-bottom {
+    max-width: 1200px;
+    margin: 1.5rem auto 0;
+    text-align: center;
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    color: var(--text-muted);
+    opacity: 0.6;
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
@@ -955,8 +980,8 @@ body {
 /* ── Global Threat Map ───────────────────────────────────────────────────── */
 
 .map-section {
-    max-width: 1800px;
-    margin: 0 auto;
+    max-width: 1200px;
+    margin: 0 auto 3rem;
     padding: 0 1.5rem;
     opacity: 0;
     transform: translateY(30px);
@@ -972,7 +997,6 @@ body {
     pointer-events: auto;
     height: auto;
     overflow: visible;
-    margin-bottom: 3rem;
 }
 
 .map-panel {
