@@ -882,8 +882,9 @@ body {
 /* ── Empty State ──────────────────────────────────────────────────────────── */
 
 .empty-state {
-    text-align: center; padding: 4rem 1rem;
-    display: flex; flex-direction: column; align-items: center;
+    text-align: center; padding: 6rem 1rem;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
 }
 .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; filter: grayscale(100%); opacity: 0.3; }
 .empty-state h3 { font-family: var(--font-head); font-size: 1.25rem; color: var(--text-bright); margin-bottom: 0.5rem; }
