@@ -49,7 +49,7 @@ app.add_middleware(
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-MAX_IPS_PER_REQUEST = 10
+MAX_IPS_PER_REQUEST = 100
 
 
 # ── Request / Response Models ─────────────────────────────────────────────────
@@ -110,18 +110,21 @@ async def analyze(req: AnalyzeRequest):
     # Deduplicate
     valid_ips = list(dict.fromkeys(valid_ips))
 
-    # Enrich all IPs concurrently
-    reports: list[IPIntelligenceReport] = []
-    async with create_client() as client:
-        tasks = [
-            enrich_single_web(
+    # Enrich all IPs concurrently with a semaphore
+    sem = asyncio.Semaphore(5)
+
+    async def _bound_enrich(ip, client):
+        async with sem:
+            return await enrich_single_web(
                 ip, client,
                 vt_key=req.keys.virustotal,
                 abuse_key=req.keys.abuseipdb,
                 shodan_key=req.keys.shodan,
             )
-            for ip in valid_ips
-        ]
+
+    reports: list[IPIntelligenceReport] = []
+    async with create_client() as client:
+        tasks = [_bound_enrich(ip, client) for ip in valid_ips]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
             if isinstance(r, IPIntelligenceReport):
@@ -170,16 +173,20 @@ async def analyze_stream(req: AnalyzeRequest):
             }),
         }
 
+        sem = asyncio.Semaphore(5)
+
+        async def _bound_enrich_stream(ip, client):
+            async with sem:
+                return await enrich_single_web(
+                    ip, client,
+                    vt_key=req.keys.virustotal,
+                    abuse_key=req.keys.abuseipdb,
+                    shodan_key=req.keys.shodan,
+                )
+
         async with create_client() as client:
             tasks = {
-                asyncio.create_task(
-                    enrich_single_web(
-                        ip, client,
-                        vt_key=req.keys.virustotal,
-                        abuse_key=req.keys.abuseipdb,
-                        shodan_key=req.keys.shodan,
-                    )
-                ): ip
+                asyncio.create_task(_bound_enrich_stream(ip, client)): ip
                 for ip in valid_ips
             }
 

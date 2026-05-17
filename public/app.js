@@ -113,9 +113,9 @@ function handleIPInputChange() {
     els.ipCount.textContent = `${count} IP(s) ready`;
     els.btnAnalyze.disabled = count === 0 || state.analyzing;
 
-    if (count > 10) {
+    if (count > 100) {
         els.ipCount.style.color = 'var(--red)';
-        els.ipCount.textContent = `${count} IPs (max 10 on web)`;
+        els.ipCount.textContent = `${count} IPs (max 100 on web)`;
     } else {
         els.ipCount.style.color = 'var(--text-muted)';
     }
@@ -281,7 +281,7 @@ function updateSummary() {
 async function analyze() {
     const ips = parseIPs(els.ipInput.value);
     if (ips.length === 0 || state.analyzing) return;
-    if (ips.length > 10) { alert(`Max 10 IPs allowed on web. Sent ${ips.length}.`); return; }
+    if (ips.length > 100) { alert(`Max 100 IPs allowed on web. Sent ${ips.length}.`); return; }
 
     state.reports = [];
     state.analyzing = true;
