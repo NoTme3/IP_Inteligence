@@ -22,8 +22,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-# ── Ensure ip_intel package is importable ─────────────────────────────────────
-_project_root = Path(__file__).resolve().parent.parent.parent
+# ── Ensure project root is importable ─────────────────────────────────────────
+_project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 

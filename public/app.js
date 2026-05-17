@@ -313,8 +313,14 @@ async function analyze() {
         });
 
         if (!resp.ok) {
-            const err = await resp.json();
-            throw new Error(err.error || `HTTP ${resp.status}`);
+            let errMsg = `HTTP ${resp.status}`;
+            try {
+                const err = await resp.json();
+                errMsg = err.error || errMsg;
+            } catch (e) {
+                errMsg = `Server Error (${resp.status}). The backend failed to start or crashed.`;
+            }
+            throw new Error(errMsg);
         }
 
         const reader = resp.body.getReader();
