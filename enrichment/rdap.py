@@ -13,8 +13,8 @@ from ipwhois.exceptions import (
     WhoisLookupError,
 )
 
-from ip_intel.models import OwnershipInfo
-from ip_intel.utils.logger import get_logger
+from models import OwnershipInfo
+from utils.logger import get_logger
 
 log = get_logger("rdap")
 

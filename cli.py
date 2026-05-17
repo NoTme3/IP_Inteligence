@@ -13,13 +13,13 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ip_intel import __version__
-from ip_intel.config import settings
-from ip_intel.core.input_handler import parse_ips
-from ip_intel.core.pipeline import run_pipeline
-from ip_intel.models import IPIntelligenceReport
-from ip_intel.reporting.renderer import render_csv, render_html, render_json
-from ip_intel.storage.database import Database
-from ip_intel.utils.logger import setup_logging
+from config import settings
+from core.input_handler import parse_ips
+from core.pipeline import run_pipeline
+from models import IPIntelligenceReport
+from reporting.renderer import render_csv, render_html, render_json
+from storage.database import Database
+from utils.logger import setup_logging
 
 app = typer.Typer(
     name="ip-intel",

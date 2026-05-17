@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 import socket
 
-from ip_intel.models import DNSInfo
-from ip_intel.utils.logger import get_logger
+from models import DNSInfo
+from utils.logger import get_logger
 
 log = get_logger("dns")
 

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import httpx
 
-from ip_intel.config import settings
-from ip_intel.models import AbuseIPDBResult
-from ip_intel.utils.http_client import abuseipdb_limiter, rate_limited_get
-from ip_intel.utils.logger import get_logger
+from config import settings
+from models import AbuseIPDBResult
+from utils.http_client import abuseipdb_limiter, rate_limited_get
+from utils.logger import get_logger
 
 log = get_logger("abuseipdb")
 

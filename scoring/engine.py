@@ -10,13 +10,13 @@ Classification:
 
 from __future__ import annotations
 
-from ip_intel.models import (
+from models import (
     IPIntelligenceReport,
     RiskClassification,
     RiskScore,
     ScoringSignal,
 )
-from ip_intel.utils.logger import get_logger
+from utils.logger import get_logger
 
 log = get_logger("scoring")
 

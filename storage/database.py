@@ -8,9 +8,9 @@ from typing import Optional
 
 import aiosqlite
 
-from ip_intel.config import settings
-from ip_intel.models import IPIntelligenceReport
-from ip_intel.utils.logger import get_logger
+from config import settings
+from models import IPIntelligenceReport
+from utils.logger import get_logger
 
 log = get_logger("database")
 

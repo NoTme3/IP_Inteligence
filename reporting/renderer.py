@@ -10,8 +10,8 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from ip_intel.models import IPIntelligenceReport
-from ip_intel.utils.logger import get_logger
+from models import IPIntelligenceReport
+from utils.logger import get_logger
 
 log = get_logger("reporting")
 

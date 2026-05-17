@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.py",
+      "src": "app.py",
       "use": "@vercel/python"
     },
     {
@@ -11,7 +11,7 @@
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "api/index.py" },
+    { "src": "/api/(.*)", "dest": "app.py" },
     { "src": "/(.*\\.(html|css|js|ico|png|svg))", "dest": "public/$1" },
     { "src": "/", "dest": "public/index.html" }
   ]

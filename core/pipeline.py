@@ -16,17 +16,17 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from ip_intel.config import Settings, settings
-from ip_intel.enrichment.dns import resolve_ptr
-from ip_intel.enrichment.rdap import lookup_rdap
-from ip_intel.models import IPInput, IPIntelligenceReport
-from ip_intel.scoring.engine import compute_risk_score
-from ip_intel.storage.database import Database
-from ip_intel.threat_intel.abuseipdb import query_abuseipdb
-from ip_intel.threat_intel.shodan import query_shodan
-from ip_intel.threat_intel.virustotal import query_virustotal
-from ip_intel.utils.http_client import create_client
-from ip_intel.utils.logger import get_logger
+from config import Settings, settings
+from enrichment.dns import resolve_ptr
+from enrichment.rdap import lookup_rdap
+from models import IPInput, IPIntelligenceReport
+from scoring.engine import compute_risk_score
+from storage.database import Database
+from threat_intel.abuseipdb import query_abuseipdb
+from threat_intel.shodan import query_shodan
+from threat_intel.virustotal import query_virustotal
+from utils.http_client import create_client
+from utils.logger import get_logger
 
 log = get_logger("pipeline")
 

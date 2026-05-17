@@ -5,10 +5,10 @@ from __future__ import annotations
 import asyncio
 import httpx
 
-from ip_intel.config import settings
-from ip_intel.models import VirusTotalResult
-from ip_intel.utils.http_client import rate_limited_get, vt_limiter
-from ip_intel.utils.logger import get_logger
+from config import settings
+from models import VirusTotalResult
+from utils.http_client import rate_limited_get, vt_limiter
+from utils.logger import get_logger
 
 log = get_logger("virustotal")
 

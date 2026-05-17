@@ -5,8 +5,8 @@ from __future__ import annotations
 import ipaddress
 from pathlib import Path
 
-from ip_intel.models import IPInput
-from ip_intel.utils.logger import get_logger
+from models import IPInput
+from utils.logger import get_logger
 
 log = get_logger("input")
 

@@ -8,8 +8,8 @@ from typing import Optional
 import httpx
 from aiolimiter import AsyncLimiter
 
-from ip_intel.config import settings
-from ip_intel.utils.logger import get_logger
+from config import settings
+from utils.logger import get_logger
 
 log = get_logger("http")
 
