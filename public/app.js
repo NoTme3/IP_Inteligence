@@ -155,6 +155,66 @@ function classLabel(cls) {
     return map[cls] || 'benign';
 }
 
+function generateSummary(r) {
+    const cls = r.risk.classification;
+    const score = r.risk.score;
+    const own = r.ownership || {};
+    const vt = r.virustotal || {};
+    const abuse = r.abuseipdb || {};
+    const shodan = r.shodan || {};
+    const gn = r.greynoise || {};
+    const otx = r.alienvault || {};
+
+    const parts = [];
+
+    // Opening line
+    const orgStr = own.org ? ` owned by ${own.org}` : '';
+    const countryStr = own.country ? ` (${own.country})` : '';
+    parts.push(`This IP${orgStr}${countryStr} has a risk score of <strong>${score}</strong> and is classified as <strong style="color:${cls==='Malicious'?'#f87171':cls==='Likely Malicious'?'#fb923c':cls==='Suspicious'?'#fbbf24':'#34d399'}">${cls}</strong>.`);
+
+    // VirusTotal
+    if (vt.available) {
+        if (vt.malicious > 0) parts.push(`<strong>${vt.malicious}</strong> antivirus engine(s) on VirusTotal flagged it as malicious${vt.suspicious > 0 ? ` and ${vt.suspicious} flagged it as suspicious` : ''}.`);
+        else parts.push('No antivirus engines on VirusTotal flagged this IP.');
+    }
+
+    // AbuseIPDB
+    if (abuse.available) {
+        if (abuse.total_reports > 0) parts.push(`AbuseIPDB shows <strong>${abuse.total_reports}</strong> abuse report(s) with a <strong>${abuse.abuse_confidence_score}%</strong> confidence score.`);
+        else parts.push('No abuse reports found on AbuseIPDB.');
+    }
+
+    // Shodan
+    if (shodan.available) {
+        const ports = shodan.open_ports || [];
+        const vulns = shodan.vulns || [];
+        if (ports.length > 0) {
+            parts.push(`Shodan detected <strong>${ports.length}</strong> open port(s): ${ports.slice(0,5).join(', ')}${ports.length > 5 ? '...' : ''}.`);
+        }
+        if (vulns.length > 0) {
+            parts.push(`⚠️ <strong>${vulns.length}</strong> known CVE(s) detected: ${vulns.slice(0,3).join(', ')}${vulns.length > 3 ? '...' : ''}.`);
+        }
+    }
+
+    // GreyNoise
+    if (gn.available) {
+        if (gn.riot) parts.push(`GreyNoise identifies this IP as a <strong style="color:#34d399">known-good service</strong> (RIOT)${gn.name ? ` — ${gn.name}` : ''}.`);
+        else if (gn.seen && gn.classification === 'malicious') parts.push(`GreyNoise classifies this as a <strong style="color:#f87171">malicious mass-scanner</strong>.`);
+        else if (gn.seen) parts.push(`GreyNoise has observed this IP as internet background noise (${gn.classification || 'unknown'}).`);
+        else parts.push('GreyNoise has not observed this IP scanning the internet.');
+    }
+
+    // AlienVault OTX
+    if (otx.available) {
+        if (otx.pulse_count > 0) {
+            parts.push(`AlienVault OTX links this IP to <strong style="color:#fbbf24">${otx.pulse_count}</strong> threat campaign(s)${otx.adversary ? ` attributed to <strong style="color:#f87171">${escHtml(otx.adversary)}</strong>` : ''}.`);
+        }
+        if (otx.malware_count > 0) parts.push(`<strong>${otx.malware_count}</strong> malware sample(s) associated.`);
+    }
+
+    return parts.join(' ');
+}
+
 function renderCard(report, index) {
     const r = report;
     const cls = classLabel(r.risk.classification);
@@ -230,6 +290,10 @@ function renderCard(report, index) {
             </div>
         </div>
         <div class="ip-card-details">
+            <div class="ip-summary-banner">
+                <div class="summary-icon">📋</div>
+                <div class="summary-text">${generateSummary(r)}</div>
+            </div>
             <div class="details-grid">
                 <div class="detail-section">
                     <h4>🌐 Network Identity ${helpTip('Basic ownership info from WHOIS/RDAP — shows the ASN, organization, CIDR block, and country that owns this IP address.')}</h4>
