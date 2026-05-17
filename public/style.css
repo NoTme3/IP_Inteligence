@@ -169,7 +169,7 @@ body {
 
 .container {
     max-width: 1200px;
-    margin: 1rem auto 2rem;
+    margin: 3rem auto 2rem;
     padding: 0 1.5rem;
 }
 
@@ -909,20 +909,20 @@ body {
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 .footer {
-    padding: 1.5rem 1.5rem 2rem;
+    padding: 1.5rem;
     border-top: 1px solid var(--glass-border);
     margin-top: 2rem;
-    background: linear-gradient(to bottom, transparent, rgba(10, 15, 30, 0.5));
+    background: transparent;
 }
 
 .footer-bottom {
     max-width: 1200px;
-    margin: 1rem auto 0;
+    margin: 0 auto;
     text-align: center;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-family: var(--mono);
-    color: var(--text-muted);
-    opacity: 0.6;
+    color: var(--text);
+    opacity: 0.8;
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
