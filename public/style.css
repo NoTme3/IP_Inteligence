@@ -50,6 +50,12 @@ body {
     line-height: 1.6;
     min-height: 100vh;
     overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content {
+    flex: 1 0 auto;
 }
 
 /* ── Animated Background ──────────────────────────────────────────────────── */
@@ -891,8 +897,42 @@ body {
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 .footer {
-    text-align: center; padding: 3rem 1rem; font-size: 0.8rem; color: var(--text-muted);
-    border-top: 1px solid var(--glass-border); margin-top: 3rem; font-family: var(--mono);
+    border-top: 1px solid var(--glass-border);
+    background: rgba(10, 15, 30, 0.4);
+    backdrop-filter: blur(10px);
+    padding: 1.5rem 2rem;
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
+.footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.footer-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-head);
+    color: var(--text-bright);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.footer-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.footer-right .dot {
+    color: rgba(255,255,255,0.15);
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
