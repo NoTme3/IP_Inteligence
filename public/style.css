@@ -169,7 +169,7 @@ body {
 
 .container {
     max-width: 1200px;
-    margin: 2rem auto;
+    margin: 1rem auto 2rem;
     padding: 0 1.5rem;
 }
 
@@ -885,7 +885,7 @@ body {
 
 .empty-state {
     text-align: center;
-    padding: 6rem 1rem 4rem;
+    padding: 3rem 1rem 2rem;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     width: 100%;
 }
@@ -999,7 +999,7 @@ body {
 
 .map-section {
     max-width: 1200px;
-    margin: 0 auto 3rem;
+    margin: 0 auto;
     padding: 0 1.5rem;
     opacity: 0;
     transform: translateY(30px);
@@ -1015,6 +1015,7 @@ body {
     pointer-events: auto;
     height: auto;
     overflow: visible;
+    margin-bottom: 3rem;
 }
 
 .map-panel {
