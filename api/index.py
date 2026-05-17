@@ -27,9 +27,9 @@ _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from ip_intel.core.pipeline import enrich_single_web
-from ip_intel.models import IPIntelligenceReport
-from ip_intel.utils.http_client import create_client
+from core.pipeline import enrich_single_web
+from models import IPIntelligenceReport
+from utils.http_client import create_client
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
@@ -46,6 +46,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    return JSONResponse(
+        status_code=500,
+        content={"error": f"Internal Server Error: {str(exc)}", "traceback": traceback.format_exc()}
+    )
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
