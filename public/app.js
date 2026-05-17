@@ -100,15 +100,15 @@ function updateKeyStatus() {
     const gn = els.keyGreynoise.value.trim();
     const otx = els.keyAlienvault.value.trim();
 
-    $('#status-vt').textContent = vt ? '✅ Active' : 'Inactive';
+    $('#status-vt').textContent = vt ? 'Active' : 'Inactive';
     $('#status-vt').style.color = vt ? 'var(--green)' : 'var(--text-muted)';
-    $('#status-abuse').textContent = abuse ? '✅ Active' : 'Inactive';
+    $('#status-abuse').textContent = abuse ? 'Active' : 'Inactive';
     $('#status-abuse').style.color = abuse ? 'var(--green)' : 'var(--text-muted)';
-    $('#status-shodan').textContent = shodan ? '✅ Shodan API Active' : '🌐 Using Free InternetDB';
+    $('#status-shodan').textContent = shodan ? 'Shodan API Active' : 'Using Free InternetDB';
     $('#status-shodan').style.color = shodan ? 'var(--green)' : 'var(--accent)';
-    $('#status-greynoise').textContent = gn ? '✅ Full API Active' : '🌐 Using Free Community API';
+    $('#status-greynoise').textContent = gn ? 'Full API Active' : 'Using Free Community API';
     $('#status-greynoise').style.color = gn ? 'var(--green)' : 'var(--accent)';
-    $('#status-alienvault').textContent = otx ? '✅ OTX API Active' : '🌐 Using Free OTX API';
+    $('#status-alienvault').textContent = otx ? 'OTX API Active' : 'Using Free OTX API';
     $('#status-alienvault').style.color = otx ? 'var(--green)' : 'var(--accent)';
 }
 
@@ -192,7 +192,7 @@ function generateSummary(r) {
             parts.push(`Shodan detected <strong>${ports.length}</strong> open port(s): ${ports.slice(0,5).join(', ')}${ports.length > 5 ? '...' : ''}.`);
         }
         if (vulns.length > 0) {
-            parts.push(`⚠️ <strong>${vulns.length}</strong> known CVE(s) detected: ${vulns.slice(0,3).join(', ')}${vulns.length > 3 ? '...' : ''}.`);
+            parts.push(`<strong>${vulns.length}</strong> known CVE(s) detected: ${vulns.slice(0,3).join(', ')}${vulns.length > 3 ? '...' : ''}.`);
         }
     }
 
@@ -291,12 +291,14 @@ function renderCard(report, index) {
         </div>
         <div class="ip-card-details">
             <div class="ip-summary-banner">
-                <div class="summary-icon">📋</div>
+                <div class="summary-icon">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </div>
                 <div class="summary-text">${generateSummary(r)}</div>
             </div>
             <div class="details-grid">
                 <div class="detail-section">
-                    <h4>🌐 Network Identity ${helpTip('Basic ownership info from WHOIS/RDAP — shows the ASN, organization, CIDR block, and country that owns this IP address.')}</h4>
+                    <h4>Network Identity ${helpTip('Basic ownership info from WHOIS/RDAP — shows the ASN, organization, CIDR block, and country that owns this IP address.')}</h4>
                     <div class="detail-row"><span class="key">ASN</span><span class="val">${escHtml(own.asn || '—')}</span></div>
                     <div class="detail-row"><span class="key">Organization</span><span class="val">${escHtml(own.org || '—')}</span></div>
                     <div class="detail-row"><span class="key">CIDR Range</span><span class="val">${escHtml(own.cidr || '—')}</span></div>
@@ -306,7 +308,7 @@ function renderCard(report, index) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>⚠️ VirusTotal Telemetry ${helpTip('Aggregated scan results from 70+ antivirus engines. "Malicious Flags" means how many vendors flagged this IP as dangerous. Higher = worse.')}</h4>
+                    <h4>VirusTotal Telemetry ${helpTip('Aggregated scan results from 70+ antivirus engines. "Malicious Flags" means how many vendors flagged this IP as dangerous. Higher = worse.')}</h4>
                     ${vt.available ? `
                         <div class="detail-row"><span class="key">Malicious Flags</span><span class="val" style="color:${vt.malicious > 0 ? '#f87171' : 'var(--text-bright)'}">${vt.malicious}</span></div>
                         <div class="detail-row"><span class="key">Suspicious Flags</span><span class="val" style="color:${vt.suspicious > 0 ? '#fbbf24' : 'var(--text-bright)'}">${vt.suspicious}</span></div>
@@ -318,7 +320,7 @@ function renderCard(report, index) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>🚨 AbuseIPDB Reports ${helpTip('Community-sourced abuse reports. "Confidence Score" (0-100%) reflects how likely this IP is involved in attacks. Reports come from sysadmins worldwide.')}</h4>
+                    <h4>AbuseIPDB Reports ${helpTip('Community-sourced abuse reports. "Confidence Score" (0-100%) reflects how likely this IP is involved in attacks. Reports come from sysadmins worldwide.')}</h4>
                     ${abuse.available ? `
                         <div class="detail-row"><span class="key">Confidence Score</span><span class="val" style="color:${abuse.abuse_confidence_score > 70 ? '#f87171' : abuse.abuse_confidence_score > 40 ? '#fbbf24' : '#34d399'}">${abuse.abuse_confidence_score}%</span></div>
                         <div class="detail-row"><span class="key">Total Reports</span><span class="val">${abuse.total_reports}</span></div>
@@ -329,7 +331,7 @@ function renderCard(report, index) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>🔍 Shodan Surface ${helpTip('Attack surface analysis showing open ports, running services, and known CVE vulnerabilities. Exposed ports and unpatched CVEs significantly increase risk.')}</h4>
+                    <h4>Shodan Surface ${helpTip('Attack surface analysis showing open ports, running services, and known CVE vulnerabilities. Exposed ports and unpatched CVEs significantly increase risk.')}</h4>
                     ${shodan.available ? `
                         <div class="detail-row"><span class="key">Open Ports</span><span class="val">${shodan.open_ports && shodan.open_ports.length ? shodan.open_ports.join(', ') : '<span style="color:var(--text-muted)">Clean</span>'}</span></div>
                         ${hostnamesList ? `<div class="detail-row"><span class="key">Hostnames</span><span class="val">${hostnamesList}</span></div>` : ''}
@@ -339,10 +341,10 @@ function renderCard(report, index) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>🤫 GreyNoise Context ${helpTip('Identifies mass internet scanners and known-good services. "RIOT" means the IP belongs to a trusted service (e.g. Google, Cloudflare). "Internet Noise" means it\'s scanning the entire internet.')}</h4>
+                    <h4>GreyNoise Context ${helpTip('Identifies mass internet scanners and known-good services. "RIOT" means the IP belongs to a trusted service (e.g. Google, Cloudflare). "Internet Noise" means it\'s scanning the entire internet.')}</h4>
                     ${gn.available ? `
                         <div class="detail-row"><span class="key">Classification</span><span class="val" style="color:${gn.classification==='malicious'?'#f87171':gn.classification==='benign'?'#34d399':'var(--text-bright)'}">${escHtml(gn.classification || 'unknown')}</span></div>
-                        <div class="detail-row"><span class="key">Internet Noise</span><span class="val">${gn.seen ? '⚠️ Yes — Mass Scanner' : '✅ No'}</span></div>
+                        <div class="detail-row"><span class="key">Internet Noise</span><span class="val">${gn.seen ? 'Yes — Mass Scanner' : 'No'}</span></div>
                         <div class="detail-row"><span class="key">RIOT (Known Good)</span><span class="val" style="color:${gn.riot?'#34d399':'var(--text-bright)'}">${gn.riot ? '✅ Yes' : 'No'}</span></div>
                         ${gn.name ? `<div class="detail-row"><span class="key">Actor / Name</span><span class="val">${escHtml(gn.name)}</span></div>` : ''}
                         ${gn.tags && gn.tags.length ? `<div class="detail-row"><span class="key">Tags</span><span class="val">${gn.tags.map(t=>escHtml(t)).join(', ')}</span></div>` : ''}
@@ -351,7 +353,7 @@ function renderCard(report, index) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>👽 AlienVault OTX ${helpTip('Open Threat Exchange pulse data. "Threat Pulses" are community-reported threat campaigns. Associated adversary groups and malware samples indicate active threat actor involvement.')}</h4>
+                    <h4>AlienVault OTX ${helpTip('Open Threat Exchange pulse data. "Threat Pulses" are community-reported threat campaigns. Associated adversary groups and malware samples indicate active threat actor involvement.')}</h4>
                     ${otx.available ? `
                         <div class="detail-row"><span class="key">Threat Pulses</span><span class="val" style="color:${otx.pulse_count>3?'#f87171':otx.pulse_count>0?'#fbbf24':'#34d399'}">${otx.pulse_count}</span></div>
                         <div class="detail-row"><span class="key">Malware Samples</span><span class="val" style="color:${otx.malware_count>0?'#f87171':'var(--text-bright)'}">${otx.malware_count}</span></div>
@@ -581,7 +583,7 @@ function exportHTML() {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>IP Intelligence Report</title>
 <style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#050505;color:#f8fafc;padding:40px;max-width:1000px;margin:0 auto;line-height:1.6;}h1{font-size:1.75rem;margin-bottom:4px;}p.meta{color:#6b7280;font-size:0.85rem;margin-bottom:24px;}table td{vertical-align:top;}</style>
 </head><body>
-<h1>🛡️ IP Intelligence Report</h1>
+<h1>IP Intelligence Report</h1>
 <p class="meta">Generated: ${ts} • ${state.reports.length} IP(s) analyzed</p>
 ${cards}
 <p style="text-align:center;color:#4b5563;font-size:0.75rem;margin-top:32px;">Powered by IP Intel Engine</p>

@@ -707,10 +707,9 @@ body {
     gap: 1rem;
     padding: 1.25rem 1.5rem;
     margin: 0.5rem 1.5rem 0;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.06));
-    border: 1px solid rgba(59, 130, 246, 0.15);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
-    border-left: 3px solid var(--accent);
     align-items: flex-start;
 }
 

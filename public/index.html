@@ -7,7 +7,7 @@
     <meta name="description" content="State-of-the-art IP address threat intelligence and passive reconnaissance.">
     <link rel="stylesheet" href="/style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%233b82f6'/><text x='50' y='70' font-size='65' font-family='sans-serif' font-weight='bold' fill='white' text-anchor='middle'>IP</text></svg>">
 </head>
 <body>
 
@@ -23,11 +23,11 @@
     <header class="header">
         <div class="header-inner">
             <h1>
-                <span class="icon">🛡</span>
+                <span class="icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg></span>
                 IP Intel
             </h1>
             <button class="btn-settings" id="btn-settings" title="Settings">
-                ⚙️ <span>Keys & Settings</span>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> <span>Keys & Settings</span>
             </button>
         </div>
     </header>
@@ -47,7 +47,7 @@
                     <label>VirusTotal</label>
                     <div class="key-input-wrap">
                         <input type="password" id="key-vt" placeholder="Enter VT API key" autocomplete="off">
-                        <button class="key-toggle-vis" data-target="key-vt" type="button">👁</button>
+                        <button class="key-toggle-vis" data-target="key-vt" type="button"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
                     </div>
                     <span class="key-status-text" id="status-vt">Inactive</span>
                 </div>
@@ -55,7 +55,7 @@
                     <label>AbuseIPDB</label>
                     <div class="key-input-wrap">
                         <input type="password" id="key-abuse" placeholder="Enter AbuseIPDB API key" autocomplete="off">
-                        <button class="key-toggle-vis" data-target="key-abuse" type="button">👁</button>
+                        <button class="key-toggle-vis" data-target="key-abuse" type="button"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
                     </div>
                     <span class="key-status-text" id="status-abuse">Inactive</span>
                 </div>
@@ -63,7 +63,7 @@
                     <label>Shodan</label>
                     <div class="key-input-wrap">
                         <input type="password" id="key-shodan" placeholder="Enter Shodan API key (Optional)" autocomplete="off">
-                        <button class="key-toggle-vis" data-target="key-shodan" type="button">👁</button>
+                        <button class="key-toggle-vis" data-target="key-shodan" type="button"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
                     </div>
                     <span class="key-status-text" id="status-shodan">Using Free InternetDB Fallback</span>
                 </div>
@@ -71,17 +71,17 @@
                     <label>GreyNoise</label>
                     <div class="key-input-wrap">
                         <input type="password" id="key-greynoise" placeholder="Enter GreyNoise API key (Optional — Community API is free)" autocomplete="off">
-                        <button class="key-toggle-vis" data-target="key-greynoise" type="button">👁</button>
+                        <button class="key-toggle-vis" data-target="key-greynoise" type="button"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
                     </div>
-                    <span class="key-status-text" id="status-greynoise">🌐 Using Free Community API</span>
+                    <span class="key-status-text" id="status-greynoise">Using Free Community API</span>
                 </div>
                 <div class="key-row">
                     <label>AlienVault OTX</label>
                     <div class="key-input-wrap">
                         <input type="password" id="key-alienvault" placeholder="Enter OTX API key (Optional — free tier available)" autocomplete="off">
-                        <button class="key-toggle-vis" data-target="key-alienvault" type="button">👁</button>
+                        <button class="key-toggle-vis" data-target="key-alienvault" type="button"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></button>
                     </div>
-                    <span class="key-status-text" id="status-alienvault">🌐 Using Free OTX API</span>
+                    <span class="key-status-text" id="status-alienvault">Using Free OTX API</span>
                 </div>
             </div>
             <div class="modal-footer">
@@ -101,7 +101,7 @@
                 <div class="action-buttons">
                     <input type="file" id="file-upload" accept=".txt,.csv" style="display: none;">
                     <button class="btn-upload" id="btn-upload">
-                        📁 <span>Upload File</span>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg> <span>Upload File</span>
                     </button>
                     <button class="btn-analyze" id="btn-analyze" disabled>
                         <span class="spinner"></span>
@@ -147,7 +147,7 @@
         <div class="controls-header" id="controls-header">
             <h3 style="font-family: var(--font-head); color: var(--text-bright); font-size: 1.25rem;">Intelligence Reports</h3>
             <div class="export-group">
-                <button class="btn-export" id="btn-export-pdf">📄 PDF</button>
+                <button class="btn-export" id="btn-export-pdf">PDF</button>
                 <button class="btn-export" id="btn-export-json">JSON</button>
                 <button class="btn-export" id="btn-export-csv">CSV</button>
                 <button class="btn-export" id="btn-export-html">HTML</button>
@@ -168,7 +168,7 @@
     <section class="map-section" id="map-section">
         <div class="glass-panel map-panel">
             <div class="map-header">
-                <h3>🌍 Global Threat Map</h3>
+                <h3>Global Threat Map</h3>
                 <span class="map-legend">
                     <span class="legend-dot benign"></span> Benign
                     <span class="legend-dot suspicious"></span> Suspicious
