@@ -472,18 +472,20 @@ body {
 /* ── Summary Stats (Animated Counters) ────────────────────────────────────── */
 
 .summary-bar {
-    display: grid;
+    display: none;
     grid-template-columns: repeat(5, 1fr);
     gap: 1rem;
     margin-bottom: 2rem;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .summary-bar.visible {
-    opacity: 1;
-    transform: translateY(0);
+    display: grid;
+    animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .stat-card {
@@ -532,15 +534,21 @@ body {
 /* ── Export Controls ──────────────────────────────────────────────────────── */
 
 .controls-header {
-    display: flex;
+    display: none;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
-    opacity: 0;
-    transition: opacity 0.5s ease;
 }
 
-.controls-header.visible { opacity: 1; }
+.controls-header.visible {
+    display: flex;
+    animation: fadeIn 0.5s ease forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
 
 .export-group {
     display: flex;
@@ -907,9 +915,9 @@ body {
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 .footer {
-    padding: 3rem 1.5rem 1.5rem;
+    padding: 1.5rem;
     border-top: 1px solid var(--glass-border);
-    margin-top: 4rem;
+    margin-top: 2rem;
     background: linear-gradient(to bottom, transparent, rgba(10, 15, 30, 0.5));
 }
 
@@ -920,8 +928,8 @@ body {
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 2rem;
-    padding-bottom: 2rem;
+    gap: 1rem;
+    padding-bottom: 1rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -970,7 +978,7 @@ body {
 
 .footer-bottom {
     max-width: 1200px;
-    margin: 1.5rem auto 0;
+    margin: 1rem auto 0;
     text-align: center;
     font-size: 0.75rem;
     font-family: var(--mono);
