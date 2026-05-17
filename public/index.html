@@ -6,6 +6,7 @@
     <title>IP Intelligence — Modern Threat Analysis</title>
     <meta name="description" content="State-of-the-art IP address threat intelligence and passive reconnaissance.">
     <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>">
 </head>
 <body>
@@ -65,6 +66,22 @@
                         <button class="key-toggle-vis" data-target="key-shodan" type="button">👁</button>
                     </div>
                     <span class="key-status-text" id="status-shodan">Using Free InternetDB Fallback</span>
+                </div>
+                <div class="key-row">
+                    <label>GreyNoise</label>
+                    <div class="key-input-wrap">
+                        <input type="password" id="key-greynoise" placeholder="Enter GreyNoise API key (Optional — Community API is free)" autocomplete="off">
+                        <button class="key-toggle-vis" data-target="key-greynoise" type="button">👁</button>
+                    </div>
+                    <span class="key-status-text" id="status-greynoise">🌐 Using Free Community API</span>
+                </div>
+                <div class="key-row">
+                    <label>AlienVault OTX</label>
+                    <div class="key-input-wrap">
+                        <input type="password" id="key-alienvault" placeholder="Enter OTX API key (Optional — free tier available)" autocomplete="off">
+                        <button class="key-toggle-vis" data-target="key-alienvault" type="button">👁</button>
+                    </div>
+                    <span class="key-status-text" id="status-alienvault">🌐 Using Free OTX API</span>
                 </div>
             </div>
             <div class="modal-footer">
@@ -130,6 +147,7 @@
         <div class="controls-header" id="controls-header">
             <h3 style="font-family: var(--font-head); color: var(--text-bright); font-size: 1.25rem;">Intelligence Reports</h3>
             <div class="export-group">
+                <button class="btn-export" id="btn-export-pdf">📄 PDF</button>
                 <button class="btn-export" id="btn-export-json">JSON</button>
                 <button class="btn-export" id="btn-export-csv">CSV</button>
                 <button class="btn-export" id="btn-export-html">HTML</button>
@@ -146,10 +164,27 @@
 
     </main>
 
+    <!-- Global Threat Map -->
+    <section class="map-section" id="map-section">
+        <div class="glass-panel map-panel">
+            <div class="map-header">
+                <h3>🌍 Global Threat Map</h3>
+                <span class="map-legend">
+                    <span class="legend-dot benign"></span> Benign
+                    <span class="legend-dot suspicious"></span> Suspicious
+                    <span class="legend-dot malicious"></span> Malicious
+                </span>
+            </div>
+            <div id="threat-map"></div>
+        </div>
+    </section>
+
     <footer class="footer">
         Powered by IP-Intel Engine • Passive Reconnaissance • Local Execution
     </footer>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
     <script src="/app.js"></script>
 </body>
 </html>

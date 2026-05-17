@@ -111,6 +111,34 @@ class ShodanResult(BaseModel):
     source: str = ""  # 'shodan_api' or 'internetdb'
 
 
+class GreyNoiseResult(BaseModel):
+    """Parsed GreyNoise classification result."""
+
+    seen: bool = False
+    classification: str = "unknown"  # benign, malicious, unknown
+    name: str = ""  # Actor name if identified
+    riot: bool = False  # True = known-good service (Rule It Out)
+    message: str = ""
+    last_seen: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
+    cve: list[str] = Field(default_factory=list)
+    category: str = ""  # isp, business, hosting, etc.
+    available: bool = True
+
+
+class AlienVaultResult(BaseModel):
+    """Parsed AlienVault OTX result."""
+
+    pulse_count: int = 0
+    reputation: int = 0
+    malware_count: int = 0
+    malware_families: list[str] = Field(default_factory=list)
+    pulse_names: list[str] = Field(default_factory=list)  # Threat campaign names
+    adversary: str = ""  # Known threat group attribution
+    country: Optional[str] = None
+    available: bool = True
+
+
 # ── Scoring ───────────────────────────────────────────────────────────────────
 
 
@@ -148,6 +176,8 @@ class IPIntelligenceReport(BaseModel):
     virustotal: VirusTotalResult = Field(default_factory=VirusTotalResult)
     abuseipdb: AbuseIPDBResult = Field(default_factory=AbuseIPDBResult)
     shodan: ShodanResult = Field(default_factory=ShodanResult)
+    greynoise: GreyNoiseResult = Field(default_factory=GreyNoiseResult)
+    alienvault: AlienVaultResult = Field(default_factory=AlienVaultResult)
 
     # Risk assessment
     risk: RiskScore = Field(default_factory=RiskScore)

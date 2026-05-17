@@ -804,3 +804,91 @@ body {
     .action-buttons { width: 100%; }
     .btn-upload, .btn-analyze { flex: 1; justify-content: center; }
 }
+
+/* ── Global Threat Map ───────────────────────────────────────────────────── */
+
+.map-section {
+    max-width: 1200px;
+    margin: 0 auto 3rem;
+    padding: 0 1.5rem;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+    height: 0;
+    overflow: hidden;
+}
+
+.map-section.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    height: auto;
+    overflow: visible;
+}
+
+.map-panel {
+    padding: 1.5rem;
+}
+
+.map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.map-header h3 {
+    font-family: var(--font-head);
+    font-size: 1.25rem;
+    color: var(--text-bright);
+}
+
+.map-legend {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 0.25rem;
+}
+
+.legend-dot.benign { background: #22c55e; }
+.legend-dot.suspicious { background: #eab308; }
+.legend-dot.malicious { background: #ef4444; }
+
+#threat-map {
+    height: 400px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border);
+    overflow: hidden;
+    background: #0a0a0a;
+}
+
+/* Leaflet overrides for dark theme */
+.leaflet-control-zoom a {
+    background: rgba(17, 24, 39, 0.9) !important;
+    color: #fff !important;
+    border-color: var(--glass-border) !important;
+}
+
+.leaflet-popup-content-wrapper {
+    background: rgba(17, 24, 39, 0.95) !important;
+    color: var(--text-bright) !important;
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--glass-border) !important;
+    box-shadow: var(--glass-shadow) !important;
+    font-family: var(--mono) !important;
+    font-size: 0.8rem !important;
+}
+
+.leaflet-popup-tip {
+    background: rgba(17, 24, 39, 0.95) !important;
+}

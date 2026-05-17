@@ -213,6 +213,95 @@ def compute_risk_score(report: IPIntelligenceReport) -> RiskScore:
             ))
             raw_score += weight
 
+    # ── GreyNoise signals ─────────────────────────────────────────────────
+
+    gn = report.greynoise
+    if gn.available:
+        if gn.riot:
+            # RIOT = known-good service (Google, Microsoft, etc.)
+            signals.append(ScoringSignal(
+                name="GreyNoise RIOT (Benign Service)",
+                weight=-20,
+                reason=f"GreyNoise identifies this IP as a known-good service{': ' + gn.name if gn.name else ''}",
+            ))
+            raw_score -= 20
+        elif gn.classification == "benign":
+            signals.append(ScoringSignal(
+                name="GreyNoise Benign Scanner",
+                weight=-10,
+                reason="GreyNoise classifies this IP as a benign internet scanner",
+            ))
+            raw_score -= 10
+        elif gn.classification == "malicious":
+            signals.append(ScoringSignal(
+                name="GreyNoise Malicious Activity",
+                weight=15,
+                reason=f"GreyNoise classifies this IP as malicious{': ' + gn.name if gn.name else ''}",
+            ))
+            raw_score += 15
+
+        if gn.tags:
+            tag_sample = ", ".join(gn.tags[:5])
+            signals.append(ScoringSignal(
+                name="GreyNoise Activity Tags",
+                weight=5,
+                reason=f"GreyNoise tags: {tag_sample}",
+            ))
+            raw_score += 5
+
+        if gn.cve:
+            weight = min(10, len(gn.cve) * 2)
+            cve_sample = ", ".join(gn.cve[:5])
+            signals.append(ScoringSignal(
+                name="GreyNoise CVE Exploitation",
+                weight=weight,
+                reason=f"GreyNoise observed exploitation of: {cve_sample}",
+            ))
+            raw_score += weight
+
+    # ── AlienVault OTX signals ────────────────────────────────────────────
+
+    otx = report.alienvault
+    if otx.available:
+        if otx.pulse_count > 10:
+            signals.append(ScoringSignal(
+                name="AlienVault High Pulse Count",
+                weight=15,
+                reason=f"IP mentioned in {otx.pulse_count} OTX threat intelligence pulses",
+            ))
+            raw_score += 15
+        elif otx.pulse_count > 3:
+            signals.append(ScoringSignal(
+                name="AlienVault Moderate Pulse Count",
+                weight=8,
+                reason=f"IP mentioned in {otx.pulse_count} OTX threat intelligence pulses",
+            ))
+            raw_score += 8
+        elif otx.pulse_count > 0:
+            signals.append(ScoringSignal(
+                name="AlienVault Pulse Presence",
+                weight=3,
+                reason=f"IP mentioned in {otx.pulse_count} OTX pulse(s)",
+            ))
+            raw_score += 3
+
+        if otx.adversary:
+            signals.append(ScoringSignal(
+                name="AlienVault Threat Group Attribution",
+                weight=15,
+                reason=f"Attributed to known threat group: {otx.adversary}",
+            ))
+            raw_score += 15
+
+        if otx.malware_count > 0:
+            weight = min(10, otx.malware_count * 2)
+            signals.append(ScoringSignal(
+                name="AlienVault Malware Association",
+                weight=weight,
+                reason=f"{otx.malware_count} malware sample(s) associated with this IP",
+            ))
+            raw_score += weight
+
     # ── No intelligence available ─────────────────────────────────────────
 
     if not vt.available and not abuse.available and not shodan.available:

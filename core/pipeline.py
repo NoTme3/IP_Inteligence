@@ -23,6 +23,8 @@ from models import IPInput, IPIntelligenceReport
 from scoring.engine import compute_risk_score
 from storage.database import Database
 from threat_intel.abuseipdb import query_abuseipdb
+from threat_intel.alienvault import query_alienvault
+from threat_intel.greynoise import query_greynoise
 from threat_intel.shodan import query_shodan
 from threat_intel.virustotal import query_virustotal
 from utils.http_client import create_client
@@ -227,6 +229,8 @@ async def enrich_single_web(
     vt_key: str = "",
     abuse_key: str = "",
     shodan_key: str = "",
+    greynoise_key: str = "",
+    alienvault_key: str = "",
 ) -> IPIntelligenceReport:
     """Lightweight enrichment for web/serverless use — no DB, no progress bar.
 
@@ -266,9 +270,12 @@ async def enrich_single_web(
     vt_task = query_virustotal(ip, client, api_key=vt_key)
     abuse_task = query_abuseipdb(ip, client, api_key=abuse_key)
     shodan_task = query_shodan(ip, client, api_key=shodan_key)
+    greynoise_task = query_greynoise(ip, client, api_key=greynoise_key)
+    alienvault_task = query_alienvault(ip, client, api_key=alienvault_key)
 
     results = await asyncio.gather(
         rdap_task, dns_task, vt_task, abuse_task, shodan_task,
+        greynoise_task, alienvault_task,
         return_exceptions=True,
     )
 
@@ -296,6 +303,16 @@ async def enrich_single_web(
         report.shodan = results[4]
     else:
         report.errors.append(f"Shodan: {results[4]}")
+
+    if not isinstance(results[5], Exception):
+        report.greynoise = results[5]
+    else:
+        report.errors.append(f"GreyNoise: {results[5]}")
+
+    if not isinstance(results[6], Exception):
+        report.alienvault = results[6]
+    else:
+        report.errors.append(f"AlienVault: {results[6]}")
 
     report.risk = compute_risk_score(report)
     report.query_duration_s = round(time.monotonic() - start, 2)

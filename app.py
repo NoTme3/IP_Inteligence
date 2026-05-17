@@ -63,6 +63,8 @@ class APIKeys(BaseModel):
     virustotal: str = ""
     abuseipdb: str = ""
     shodan: str = ""
+    greynoise: str = ""
+    alienvault: str = ""
 
 
 class AnalyzeRequest(BaseModel):
@@ -124,6 +126,8 @@ async def analyze(req: AnalyzeRequest):
                 vt_key=req.keys.virustotal,
                 abuse_key=req.keys.abuseipdb,
                 shodan_key=req.keys.shodan,
+                greynoise_key=req.keys.greynoise,
+                alienvault_key=req.keys.alienvault,
             )
 
     reports: list[IPIntelligenceReport] = []
@@ -186,6 +190,8 @@ async def analyze_stream(req: AnalyzeRequest):
                     vt_key=req.keys.virustotal,
                     abuse_key=req.keys.abuseipdb,
                     shodan_key=req.keys.shodan,
+                    greynoise_key=req.keys.greynoise,
+                    alienvault_key=req.keys.alienvault,
                 )
 
         async with create_client() as client:
@@ -229,10 +235,18 @@ async def analyze_stream(req: AnalyzeRequest):
 
 # ── Serve static files (for local dev) ────────────────────────────────────────
 
-_public_dir = Path(__file__).resolve().parent.parent / "public"
+_public_dir = Path(__file__).resolve().parent / "public"
 if _public_dir.exists():
     @app.get("/", response_class=HTMLResponse)
     async def serve_index():
         return (_public_dir / "index.html").read_text(encoding="utf-8")
 
-    app.mount("/", StaticFiles(directory=str(_public_dir)), name="static")
+    # Serve individual known files explicitly so the mount doesn't shadow "/"
+    from fastapi.responses import FileResponse
+
+    @app.get("/{filename:path}")
+    async def serve_static(filename: str):
+        file_path = _public_dir / filename
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(str(file_path))
+        return HTMLResponse(status_code=404, content="Not Found")

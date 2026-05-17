@@ -32,7 +32,9 @@ const els = {
     emptyState: $('#empty-state'),
     keyVt: $('#key-vt'),
     keyAbuse: $('#key-abuse'),
-    keyShodan: $('#key-shodan')
+    keyShodan: $('#key-shodan'),
+    keyGreynoise: $('#key-greynoise'),
+    keyAlienvault: $('#key-alienvault'),
 };
 
 // ── Number Counter Animation ─────────────────────────────────────────────────
@@ -67,6 +69,8 @@ function loadKeys() {
     els.keyVt.value = localStorage.getItem('ip_intel_vt_key') || '';
     els.keyAbuse.value = localStorage.getItem('ip_intel_abuse_key') || '';
     els.keyShodan.value = localStorage.getItem('ip_intel_shodan_key') || '';
+    els.keyGreynoise.value = localStorage.getItem('ip_intel_greynoise_key') || '';
+    els.keyAlienvault.value = localStorage.getItem('ip_intel_alienvault_key') || '';
     updateKeyStatus();
 }
 
@@ -74,6 +78,8 @@ function saveKeys() {
     localStorage.setItem('ip_intel_vt_key', els.keyVt.value.trim());
     localStorage.setItem('ip_intel_abuse_key', els.keyAbuse.value.trim());
     localStorage.setItem('ip_intel_shodan_key', els.keyShodan.value.trim());
+    localStorage.setItem('ip_intel_greynoise_key', els.keyGreynoise.value.trim());
+    localStorage.setItem('ip_intel_alienvault_key', els.keyAlienvault.value.trim());
     updateKeyStatus();
 }
 
@@ -82,6 +88,8 @@ function getKeys() {
         virustotal: els.keyVt.value.trim(),
         abuseipdb: els.keyAbuse.value.trim(),
         shodan: els.keyShodan.value.trim(),
+        greynoise: els.keyGreynoise.value.trim(),
+        alienvault: els.keyAlienvault.value.trim(),
     };
 }
 
@@ -89,22 +97,33 @@ function updateKeyStatus() {
     const vt = els.keyVt.value.trim();
     const abuse = els.keyAbuse.value.trim();
     const shodan = els.keyShodan.value.trim();
+    const gn = els.keyGreynoise.value.trim();
+    const otx = els.keyAlienvault.value.trim();
 
     $('#status-vt').textContent = vt ? '✅ Active' : 'Inactive';
     $('#status-vt').style.color = vt ? 'var(--green)' : 'var(--text-muted)';
-    
     $('#status-abuse').textContent = abuse ? '✅ Active' : 'Inactive';
     $('#status-abuse').style.color = abuse ? 'var(--green)' : 'var(--text-muted)';
-    
     $('#status-shodan').textContent = shodan ? '✅ Shodan API Active' : '🌐 Using Free InternetDB';
     $('#status-shodan').style.color = shodan ? 'var(--green)' : 'var(--accent)';
+    $('#status-greynoise').textContent = gn ? '✅ Full API Active' : '🌐 Using Free Community API';
+    $('#status-greynoise').style.color = gn ? 'var(--green)' : 'var(--accent)';
+    $('#status-alienvault').textContent = otx ? '✅ OTX API Active' : '🌐 Using Free OTX API';
+    $('#status-alienvault').style.color = otx ? 'var(--green)' : 'var(--accent)';
 }
 
 // ── IP Parsing ───────────────────────────────────────────────────────────────
 function parseIPs(text) {
-    const ips = text.split(/[\n,\s]+/).map(s => s.trim()).filter(s => s.length > 0)
-                    .filter(s => /^(\d{1,3}\.){3}\d{1,3}$/.test(s) || s.includes(':'));
-    return [...new Set(ips)];
+    let raw = text.split(/[\n,\s]+/).map(s => s.trim()).filter(s => s.length > 0);
+    let expanded = [];
+    for (const token of raw) {
+        if (token.includes('/')) {
+            expanded.push(...expandCIDR(token));
+        } else if (/^(\d{1,3}\.){3}\d{1,3}$/.test(token) || token.includes(':')) {
+            expanded.push(token);
+        }
+    }
+    return [...new Set(expanded)];
 }
 
 function handleIPInputChange() {
@@ -141,6 +160,8 @@ function renderCard(report, index) {
     const abuse = r.abuseipdb || {};
     const shodan = r.shodan || {};
     const dns = r.dns || {};
+    const gn = r.greynoise || {};
+    const otx = r.alienvault || {};
 
     let servicesHtml = '';
     if (shodan.services && shodan.services.length > 0) {
@@ -248,6 +269,28 @@ function renderCard(report, index) {
                         ${servicesHtml}
                     ` : `<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">Scanner unreachable</div>`}
                 </div>
+
+                <div class="detail-section">
+                    <h4>🤫 GreyNoise Context</h4>
+                    ${gn.available ? `
+                        <div class="detail-row"><span class="key">Classification</span><span class="val" style="color:${gn.classification==='malicious'?'#f87171':gn.classification==='benign'?'#34d399':'var(--text-bright)'}">${escHtml(gn.classification || 'unknown')}</span></div>
+                        <div class="detail-row"><span class="key">Internet Noise</span><span class="val">${gn.seen ? '⚠️ Yes — Mass Scanner' : '✅ No'}</span></div>
+                        <div class="detail-row"><span class="key">RIOT (Known Good)</span><span class="val" style="color:${gn.riot?'#34d399':'var(--text-bright)'}">${gn.riot ? '✅ Yes' : 'No'}</span></div>
+                        ${gn.name ? `<div class="detail-row"><span class="key">Actor / Name</span><span class="val">${escHtml(gn.name)}</span></div>` : ''}
+                        ${gn.tags && gn.tags.length ? `<div class="detail-row"><span class="key">Tags</span><span class="val">${gn.tags.map(t=>escHtml(t)).join(', ')}</span></div>` : ''}
+                        ${gn.cve && gn.cve.length ? `<div class="detail-row"><span class="key">CVEs Exploited</span><span class="val" style="color:#f87171">${gn.cve.join(', ')}</span></div>` : ''}
+                    ` : `<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">GreyNoise data unavailable</div>`}
+                </div>
+
+                <div class="detail-section">
+                    <h4>👽 AlienVault OTX</h4>
+                    ${otx.available ? `
+                        <div class="detail-row"><span class="key">Threat Pulses</span><span class="val" style="color:${otx.pulse_count>3?'#f87171':otx.pulse_count>0?'#fbbf24':'#34d399'}">${otx.pulse_count}</span></div>
+                        <div class="detail-row"><span class="key">Malware Samples</span><span class="val" style="color:${otx.malware_count>0?'#f87171':'var(--text-bright)'}">${otx.malware_count}</span></div>
+                        ${otx.adversary ? `<div class="detail-row"><span class="key">Threat Group</span><span class="val" style="color:#f87171;font-weight:700">${escHtml(otx.adversary)}</span></div>` : ''}
+                        ${otx.pulse_names && otx.pulse_names.length ? `<div style="margin-top:0.8rem;"><div class="key" style="margin-bottom:0.2rem;">Threat Campaigns</div><div class="domain-list">${otx.pulse_names.map(p=>escHtml(p)).join(', ')}</div></div>` : ''}
+                    ` : `<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">OTX data unavailable</div>`}
+                </div>
             </div>
             ${signalsHtml}
         </div>
@@ -290,6 +333,7 @@ async function analyze() {
     els.btnAnalyze.disabled = true;
     els.emptyState.style.display = 'none';
     els.resultsContainer.innerHTML = '';
+    clearMap();
     
     els.summaryBar.classList.remove('visible');
     els.controlsHeader.classList.remove('visible');
@@ -347,7 +391,7 @@ async function analyze() {
                             const payload = JSON.parse(eventData);
                             state.reports.push(payload.report);
                             els.resultsContainer.appendChild(renderCard(payload.report, indexCount++));
-                            
+                            plotIPOnMap(payload.report);
                             const pct = (payload.progress / payload.total * 100).toFixed(0);
                             els.progressFill.style.width = pct + '%';
                             els.progressText.textContent = `Streaming data: ${payload.progress} / ${payload.total} complete`;
@@ -403,18 +447,106 @@ function downloadFile(content, filename, mime) {
 function exportJSON() { downloadFile(JSON.stringify(state.reports, null, 2), 'ip_intel_report.json', 'application/json'); }
 function exportHTML() { downloadFile(document.documentElement.outerHTML, 'ip_intel_report.html', 'text/html'); }
 function exportCSV() {
-    const h = ['IP', 'Score', 'Class', 'ASN', 'Org', 'Country', 'VT_Mal', 'Abuse_Score', 'Ports'];
+    const h = ['IP', 'Score', 'Class', 'ASN', 'Org', 'Country', 'VT_Mal', 'Abuse_Score', 'Ports', 'GreyNoise', 'OTX_Pulses'];
     const r = state.reports.map(r => [
         r.ip, r.risk.score, r.risk.classification, r.ownership?.asn||'', r.ownership?.org||'', r.ownership?.country||'',
-        r.virustotal?.malicious||0, r.abuseipdb?.abuse_confidence_score||0, (r.shodan?.open_ports||[]).join(';')
+        r.virustotal?.malicious||0, r.abuseipdb?.abuse_confidence_score||0, (r.shodan?.open_ports||[]).join(';'),
+        r.greynoise?.classification||'', r.alienvault?.pulse_count||0
     ]);
     const csv = [h.join(','), ...r.map(row => row.map(c => `"${c}"`).join(','))].join('\n');
     downloadFile(csv, 'ip_intel_report.csv', 'text/csv');
 }
 
+function exportPDF() {
+    if (!state.reports.length) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.setTextColor(30, 30, 30);
+    doc.text('IP Intelligence Report', 14, 22);
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text(`Generated: ${new Date().toISOString()}  |  Total: ${state.reports.length} IP(s)`, 14, 30);
+    let y = 40;
+    state.reports.forEach((r, i) => {
+        if (y > 260) { doc.addPage(); y = 20; }
+        doc.setFontSize(11); doc.setTextColor(0);
+        doc.text(`${i+1}. ${r.ip}  —  Score: ${r.risk.score} (${r.risk.classification})`, 14, y); y += 6;
+        doc.setFontSize(8); doc.setTextColor(80);
+        doc.text(`ASN: ${r.ownership?.asn||'-'}  |  Org: ${r.ownership?.org||'-'}  |  Country: ${r.ownership?.country||'-'}`, 18, y); y += 5;
+        doc.text(`VT Malicious: ${r.virustotal?.malicious||0}  |  Abuse Score: ${r.abuseipdb?.abuse_confidence_score||0}%  |  Ports: ${(r.shodan?.open_ports||[]).join(',')||'none'}`, 18, y); y += 5;
+        doc.text(`GreyNoise: ${r.greynoise?.classification||'-'}  |  OTX Pulses: ${r.alienvault?.pulse_count||0}`, 18, y); y += 4;
+        if (r.risk.signals && r.risk.signals.length) {
+            r.risk.signals.forEach(s => {
+                if (y > 270) { doc.addPage(); y = 20; }
+                doc.text(`  [${s.weight>=0?'+':''}${s.weight}] ${s.name}: ${s.reason}`, 20, y); y += 4;
+            });
+        }
+        y += 4;
+    });
+    doc.save('ip_intel_report.pdf');
+}
+
+// ── Threat Map (Leaflet.js) ─────────────────────────────────────────────
+let threatMap = null;
+let mapMarkers = [];
+
+function initMap() {
+    if (threatMap) return;
+    threatMap = L.map('threat-map', { zoomControl: true, attributionControl: false }).setView([20, 0], 2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 18,
+    }).addTo(threatMap);
+}
+
+function plotIPOnMap(report) {
+    if (!threatMap) initMap();
+    // Use a free IP geolocation API to get lat/lng
+    const ip = report.ip;
+    fetch(`https://ipapi.co/${ip}/json/`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (!data || !data.latitude) return;
+            const cls = report.risk.classification;
+            const color = cls === 'Malicious' ? '#ef4444' : cls === 'Likely Malicious' ? '#f97316' : cls === 'Suspicious' ? '#eab308' : '#22c55e';
+            const marker = L.circleMarker([data.latitude, data.longitude], {
+                radius: 8, fillColor: color, color: '#fff', weight: 1, opacity: 0.9, fillOpacity: 0.8,
+            }).addTo(threatMap);
+            marker.bindPopup(`<b>${ip}</b><br>Score: ${report.risk.score}<br>${cls}<br>${data.city || ''}, ${data.country_name || ''}`);
+            mapMarkers.push(marker);
+            $('#map-section').classList.add('visible');
+        }).catch(() => {});
+}
+
+function clearMap() {
+    if (!threatMap) return;
+    mapMarkers.forEach(m => threatMap.removeLayer(m));
+    mapMarkers = [];
+    $('#map-section').classList.remove('visible');
+}
+
+// ── CIDR Expansion ───────────────────────────────────────────────────
+function expandCIDR(cidr) {
+    const [base, bits] = cidr.split('/');
+    const mask = parseInt(bits, 10);
+    if (isNaN(mask) || mask < 24 || mask > 32) return []; // Only allow /24-/32
+    const parts = base.split('.').map(Number);
+    const ipNum = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+    const hostBits = 32 - mask;
+    const count = Math.pow(2, hostBits);
+    const network = ipNum & (~0 << hostBits);
+    const ips = [];
+    for (let i = 1; i < count - 1 && ips.length < 100; i++) {
+        const ip = network + i;
+        ips.push(`${(ip >>> 24) & 255}.${(ip >>> 16) & 255}.${(ip >>> 8) & 255}.${ip & 255}`);
+    }
+    return ips;
+}
+
 // ── Listeners ────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     loadKeys();
+    initMap();
 
     els.btnSettings.addEventListener('click', () => els.settingsModal.classList.add('open'));
     els.btnCloseSettings.addEventListener('click', () => els.settingsModal.classList.remove('open'));
@@ -429,9 +561,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    [els.keyVt, els.keyAbuse, els.keyShodan].forEach(i => i.addEventListener('input', saveKeys));
+    [els.keyVt, els.keyAbuse, els.keyShodan, els.keyGreynoise, els.keyAlienvault].forEach(i => i.addEventListener('input', saveKeys));
     els.ipInput.addEventListener('input', handleIPInputChange);
-    
+
     els.btnUpload.addEventListener('click', () => els.fileUpload.click());
     els.fileUpload.addEventListener('change', (e) => {
         const file = e.target.files[0]; if (!file) return;
@@ -452,4 +584,5 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#btn-export-json').addEventListener('click', exportJSON);
     $('#btn-export-csv').addEventListener('click', exportCSV);
     $('#btn-export-html').addEventListener('click', exportHTML);
+    $('#btn-export-pdf').addEventListener('click', exportPDF);
 });
