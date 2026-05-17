@@ -719,6 +719,79 @@ body {
     gap: 0.5rem;
 }
 
+/* ── Help Tooltips ───────────────────────────────────────────────────────── */
+
+.help-tip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text-muted);
+    font-size: 0.6rem;
+    font-weight: 700;
+    font-family: var(--font);
+    cursor: help;
+    position: relative;
+    flex-shrink: 0;
+    transition: var(--transition);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.help-tip:hover,
+.help-tip:focus {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent);
+    color: var(--accent);
+    outline: none;
+}
+
+.help-tip-content {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    width: 260px;
+    padding: 0.75rem 1rem;
+    background: rgba(10, 15, 30, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.5;
+    text-transform: none;
+    letter-spacing: normal;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 10px rgba(59, 130, 246, 0.1);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 20;
+    white-space: normal;
+}
+
+.help-tip-content::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: rgba(59, 130, 246, 0.25);
+}
+
+.help-tip:hover .help-tip-content,
+.help-tip:focus .help-tip-content {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+}
+
 .detail-row {
     display: flex;
     justify-content: space-between;

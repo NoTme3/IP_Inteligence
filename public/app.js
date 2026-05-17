@@ -141,9 +141,13 @@ function handleIPInputChange() {
 }
 
 // ── Card Rendering ───────────────────────────────────────────────────────────
-function escHtml(str) {
-    if (!str) return '';
-    const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function helpTip(text) {
+    return `<span class="help-tip" tabindex="0" aria-label="${escHtml(text)}">?<span class="help-tip-content">${escHtml(text)}</span></span>`;
 }
 
 function classLabel(cls) {
@@ -228,7 +232,7 @@ function renderCard(report, index) {
         <div class="ip-card-details">
             <div class="details-grid">
                 <div class="detail-section">
-                    <h4>🌐 Network Identity</h4>
+                    <h4>🌐 Network Identity ${helpTip('Basic ownership info from WHOIS/RDAP — shows the ASN, organization, CIDR block, and country that owns this IP address.')}</h4>
                     <div class="detail-row"><span class="key">ASN</span><span class="val">${escHtml(own.asn || '—')}</span></div>
                     <div class="detail-row"><span class="key">Organization</span><span class="val">${escHtml(own.org || '—')}</span></div>
                     <div class="detail-row"><span class="key">CIDR Range</span><span class="val">${escHtml(own.cidr || '—')}</span></div>
@@ -238,7 +242,7 @@ function renderCard(report, index) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>⚠️ VirusTotal Telemetry</h4>
+                    <h4>⚠️ VirusTotal Telemetry ${helpTip('Aggregated scan results from 70+ antivirus engines. "Malicious Flags" means how many vendors flagged this IP as dangerous. Higher = worse.')}</h4>
                     ${vt.available ? `
                         <div class="detail-row"><span class="key">Malicious Flags</span><span class="val" style="color:${vt.malicious > 0 ? '#f87171' : 'var(--text-bright)'}">${vt.malicious}</span></div>
                         <div class="detail-row"><span class="key">Suspicious Flags</span><span class="val" style="color:${vt.suspicious > 0 ? '#fbbf24' : 'var(--text-bright)'}">${vt.suspicious}</span></div>
@@ -250,7 +254,7 @@ function renderCard(report, index) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>🚨 AbuseIPDB Reports</h4>
+                    <h4>🚨 AbuseIPDB Reports ${helpTip('Community-sourced abuse reports. "Confidence Score" (0-100%) reflects how likely this IP is involved in attacks. Reports come from sysadmins worldwide.')}</h4>
                     ${abuse.available ? `
                         <div class="detail-row"><span class="key">Confidence Score</span><span class="val" style="color:${abuse.abuse_confidence_score > 70 ? '#f87171' : abuse.abuse_confidence_score > 40 ? '#fbbf24' : '#34d399'}">${abuse.abuse_confidence_score}%</span></div>
                         <div class="detail-row"><span class="key">Total Reports</span><span class="val">${abuse.total_reports}</span></div>
@@ -261,7 +265,7 @@ function renderCard(report, index) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>🔍 Shodan Surface</h4>
+                    <h4>🔍 Shodan Surface ${helpTip('Attack surface analysis showing open ports, running services, and known CVE vulnerabilities. Exposed ports and unpatched CVEs significantly increase risk.')}</h4>
                     ${shodan.available ? `
                         <div class="detail-row"><span class="key">Open Ports</span><span class="val">${shodan.open_ports && shodan.open_ports.length ? shodan.open_ports.join(', ') : '<span style="color:var(--text-muted)">Clean</span>'}</span></div>
                         ${hostnamesList ? `<div class="detail-row"><span class="key">Hostnames</span><span class="val">${hostnamesList}</span></div>` : ''}
@@ -271,7 +275,7 @@ function renderCard(report, index) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>🤫 GreyNoise Context</h4>
+                    <h4>🤫 GreyNoise Context ${helpTip('Identifies mass internet scanners and known-good services. "RIOT" means the IP belongs to a trusted service (e.g. Google, Cloudflare). "Internet Noise" means it\'s scanning the entire internet.')}</h4>
                     ${gn.available ? `
                         <div class="detail-row"><span class="key">Classification</span><span class="val" style="color:${gn.classification==='malicious'?'#f87171':gn.classification==='benign'?'#34d399':'var(--text-bright)'}">${escHtml(gn.classification || 'unknown')}</span></div>
                         <div class="detail-row"><span class="key">Internet Noise</span><span class="val">${gn.seen ? '⚠️ Yes — Mass Scanner' : '✅ No'}</span></div>
@@ -283,7 +287,7 @@ function renderCard(report, index) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>👽 AlienVault OTX</h4>
+                    <h4>👽 AlienVault OTX ${helpTip('Open Threat Exchange pulse data. "Threat Pulses" are community-reported threat campaigns. Associated adversary groups and malware samples indicate active threat actor involvement.')}</h4>
                     ${otx.available ? `
                         <div class="detail-row"><span class="key">Threat Pulses</span><span class="val" style="color:${otx.pulse_count>3?'#f87171':otx.pulse_count>0?'#fbbf24':'#34d399'}">${otx.pulse_count}</span></div>
                         <div class="detail-row"><span class="key">Malware Samples</span><span class="val" style="color:${otx.malware_count>0?'#f87171':'var(--text-bright)'}">${otx.malware_count}</span></div>
