@@ -115,9 +115,10 @@ body {
     position: sticky;
     top: 0;
     z-index: 50;
-    background: rgba(5, 5, 5, 0.7);
+    background: rgba(5, 5, 5, 0.2);
     backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .header-inner {
@@ -181,8 +182,8 @@ body {
 
 .container {
     max-width: 1800px;
-    margin: 2rem auto;
-    padding: 0 1.5rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
 }
 
 /* ── Settings Modal ───────────────────────────────────────────────────────── */
@@ -897,9 +898,10 @@ body {
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 .footer {
-    border-top: 1px solid var(--glass-border);
-    background: rgba(10, 15, 30, 0.4);
-    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(5, 5, 5, 0.2);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     padding: 1.5rem 2rem;
     margin-top: auto;
     flex-shrink: 0;
@@ -954,7 +956,7 @@ body {
 
 .map-section {
     max-width: 1800px;
-    margin: 0 auto 3rem;
+    margin: 0 auto;
     padding: 0 1.5rem;
     opacity: 0;
     transform: translateY(30px);
@@ -970,6 +972,7 @@ body {
     pointer-events: auto;
     height: auto;
     overflow: visible;
+    margin-bottom: 3rem;
 }
 
 .map-panel {
