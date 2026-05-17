@@ -882,11 +882,25 @@ body {
 /* ── Empty State ──────────────────────────────────────────────────────────── */
 
 .empty-state {
-    text-align: center; padding: 6rem 1rem;
+    text-align: center;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    width: 100%; height: 100%;
+    min-height: 35vh; width: 100%;
 }
-.empty-state .icon { font-size: 3rem; margin-bottom: 1rem; filter: grayscale(100%); opacity: 0.3; }
+.empty-state .icon { 
+    margin-bottom: 1.5rem; 
+    opacity: 0.4;
+    color: var(--accent);
+    animation: radar-pulse 4s infinite linear;
+}
+.empty-state .icon svg {
+    width: 72px; height: 72px;
+}
+
+@keyframes radar-pulse {
+    0% { transform: scale(0.95); opacity: 0.2; }
+    50% { transform: scale(1.05); opacity: 0.6; }
+    100% { transform: scale(0.95); opacity: 0.2; }
+}
 .empty-state h3 { font-family: var(--font-head); font-size: 1.25rem; color: var(--text-bright); margin-bottom: 0.5rem; }
 .empty-state p { font-size: 0.9rem; color: var(--text-muted); max-width: 400px; }
 
