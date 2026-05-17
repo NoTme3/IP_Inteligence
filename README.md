@@ -1,148 +1,73 @@
-# 🛡 IP Intelligence & Malicious Detection Tool
+# 🛡 IP Intelligence — Analyst-Grade Threat Analysis
 
-A Python-based CLI tool that enriches IP addresses with ownership, exposure, and threat intelligence data, then computes a risk score (0–100) with explainable evidence.
+A modern, fast, and highly accurate IP intelligence platform that goes beyond simple additive scoring. It enriches IPs across 5 major threat feeds and provides an **Evidence-Aware Risk Score**, separating direct malicious activity from infrastructure attribution confidence.
 
-## Features
+It features both a rich Terminal CLI and a stunning Glassmorphic Web Dashboard.
 
-- **Multi-source intelligence** — RDAP, reverse DNS, VirusTotal, AbuseIPDB, Shodan
-- **Risk scoring (0–100)** — Weighted signals with explainability
-- **Async pipeline** — Concurrent enrichment with per-API rate limiting
-- **Multiple output formats** — JSON, CSV, styled HTML reports
-- **SQLite persistence** — Query historical results
-- **Graceful degradation** — Works with zero, one, or all API keys (fallback to Shodan InternetDB)
+## 🌟 Key Features
 
-## Quick Start
+- **Multi-Source Intelligence:** VirusTotal, AbuseIPDB, Shodan (or InternetDB), GreyNoise, and AlienVault OTX.
+- **Evidence-Aware Scoring:** Differentiates between *Direct Malicious Evidence* (e.g. malware C2) and *Contextual Associations* (e.g. community pulses).
+- **Attribution Confidence:** Classifies infrastructure (Cloud, CDN, VPS, Residential, Enterprise) to adjust confidence. A malicious IP on Cloudflare reduces attribution confidence, but doesn't blindly erase the threat score.
+- **Contradiction Detection:** Alerts analysts when feeds contradict each other (e.g. GreyNoise says Benign Service, but VirusTotal says Malicious).
+- **Explainable AI (Analyst Reasoning):** Provides plain-English justification for *why* an IP received its score.
+- **Modern Web UI:** Fast, responsive, glassmorphism design with real-time Server-Sent Events (SSE) streaming and detailed visual confidence graphs.
+- **Built-in Security:** In-memory rate limiting and restricted CORS for the web API.
+
+## 🚀 Quick Start
 
 ### 1. Setup
 
 ```bash
-cd ip_intel
+git clone https://github.com/NoTme3/IP_Inteligence.git
+cd IP_Inteligence
 
-# Create virtual environment (required on Kali/Debian)
+# Create virtual environment 
 python3 -m venv venv
-venv/bin/pip install -r requirements.txt
+source venv/bin/activate
+pip install -r requirements.txt
 
 # Configure API keys
 cp .env.example .env
 # Edit .env with your keys
 ```
 
-### 2. Get API Keys (Free Tiers)
-
-| Service | Rate Limit | Get Key |
-|---------|-----------|---------|
-| [VirusTotal](https://www.virustotal.com/gui/my-apikey) | 4 req/min, 500/day | Free account |
-| [AbuseIPDB](https://www.abuseipdb.com/account/api) | 1,000 req/day | Free account |
-| [Shodan](https://account.shodan.io) | 1 req/sec | Paid membership (Free fallback to InternetDB) |
-
-### 3. Run
+### 2. Run the Web Dashboard (Recommended)
 
 ```bash
-# Analyze single IP
+# Start the FastAPI server
+./venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
+```
+Then open `http://localhost:8000` in your browser.
+
+### 3. Run the CLI
+
+```bash
+# Analyze a single IP
 ./run.sh analyze 8.8.8.8
 
-# Multiple IPs
-./run.sh analyze 8.8.8.8 1.1.1.1 9.9.9.9
-
-# From file
+# Analyze multiple IPs from a file
 ./run.sh analyze --file ips.txt
 
-# HTML report
-./run.sh analyze 8.8.8.8 1.1.1.1 --output html --save report.html
-
-# CSV output
-./run.sh analyze 8.8.8.8 --output csv --save results.csv
-
-# With debug logging
-./run.sh analyze 8.8.8.8 -v
-
-# Skip database storage
-./run.sh analyze 8.8.8.8 --no-store
-```
-
-### 4. Query Stored Results
-
-```bash
-# Look up a specific IP
-./run.sh query --ip 8.8.8.8
-
-# List all malicious IPs
+# Query historical results from the SQLite database
 ./run.sh query --classification Malicious
-
-# Show all stored records
-./run.sh query --all
 ```
 
-## Risk Scoring
+## 🧠 How the Scoring Engine Works
 
-### Signals
+The scoring engine has been completely refactored to act like a human analyst:
 
-| Signal | Condition | Weight |
-|--------|-----------|--------|
-| VirusTotal Malicious | Vendor detections > 0 | +3 per vendor (max +25) |
-| VirusTotal Suspicious | Suspicious flags > 0 | +2 per vendor (max +10) |
-| VirusTotal Reputation | Score < -5 | +abs(score) (max +10) |
-| AbuseIPDB High | Confidence > 70% | +20 |
-| AbuseIPDB Moderate | Confidence 40–70% | +10 |
-| AbuseIPDB Reports | > 50 reports | +10 |
-| AbuseIPDB Reports | > 10 reports | +5 |
-| Suspicious Hosting | ASN keyword match | +5 |
-| Unknown Network | No ASN/org found | +5 |
-| AbuseIPDB Whitelisted | Known benign | -15 |
-| Suspicious Exposed Ports | Ports like 3389, 445, 1433 exposed | +3 per port (max +10) |
-| Known Vulnerabilities | CVEs detected via Shodan | +3 per CVE (max +15) |
-| Known Cloud Provider | AWS, GCP, Cloudflare, etc. | -5 |
+1. **Infrastructure Classification:** Detects if the IP belongs to a CDN, Shared Cloud, VPS, or Enterprise. This sets the **Attribution Confidence %**.
+2. **Signal Categorization:** Evidence is binned into `Direct Malicious`, `Contextual`, and `Reputation`. Each category has contribution caps to prevent score inflation (e.g., you can't get a 100/100 just from 20 low-confidence OTX pulses).
+3. **Corroboration:** If multiple independent feeds agree, the score is multiplied (boosted). If one feed says Malicious but 3 say Benign, the signal is dampened.
+4. **Data Completeness:** If feeds are rate-limited or down, the engine tracks completeness. Below 40%, it safely defaults to `Insufficient Data` rather than returning a false-negative `Benign`.
 
-### Classification
+## 🛠 Tech Stack
 
-| Score | Label |
-|-------|-------|
-| 0–20 | ✅ Benign |
-| 21–50 | ⚠️ Suspicious |
-| 51–75 | 🔶 Likely Malicious |
-| 76–100 | 🔴 Malicious |
+- **Backend:** Python 3.10+, FastAPI, Pydantic, HTTPX (Async), SQLite (Aiosqlite)
+- **Frontend:** Vanilla JS, CSS (Glassmorphism), Server-Sent Events (SSE)
+- **CLI:** Typer, Rich
 
-## Project Structure
+## 📝 License
 
-```
-ip_intel/
-├── cli.py                   # Typer CLI
-├── config.py                # Settings (.env)
-├── models.py                # Pydantic data models
-├── core/
-│   ├── input_handler.py     # IP parsing & validation
-│   └── pipeline.py          # Orchestrator
-├── enrichment/
-│   ├── rdap.py              # RDAP via ipwhois
-│   └── dns.py               # Reverse DNS (PTR)
-├── threat_intel/
-│   ├── virustotal.py        # VirusTotal API v3
-│   ├── abuseipdb.py         # AbuseIPDB API v2
-│   └── shodan.py            # Shodan API / InternetDB
-├── scoring/
-│   └── engine.py            # Risk scoring engine
-├── storage/
-│   └── database.py          # SQLite persistence
-├── reporting/
-│   └── renderer.py          # JSON/CSV/HTML output
-├── templates/
-│   └── report.html          # Jinja2 HTML template
-├── run.sh                   # Convenience runner
-├── .env.example             # API key template
-└── requirements.txt         # Python dependencies
-```
-
-## Tech Stack
-
-- **Python 3.10+** with `asyncio`
-- **httpx** — Async HTTP client
-- **pydantic** — Data validation & models
-- **ipwhois** — RDAP/WHOIS lookups
-- **aiolimiter** — Per-API rate limiting
-- **aiosqlite** — Async SQLite
-- **typer + rich** — CLI & console output
-- **jinja2** — HTML report templating
-
-## License
-
-MIT
+All Rights Reserved.

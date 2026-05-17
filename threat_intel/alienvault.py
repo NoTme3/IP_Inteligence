@@ -11,9 +11,10 @@ No API key is required for basic lookups, but a key enables higher rate limits.
 
 from __future__ import annotations
 
+import datetime
 import httpx
 
-from models import AlienVaultResult
+from models import AlienVaultResult, OTXPulseAssessment
 from utils.logger import get_logger
 
 log = get_logger("alienvault")
@@ -75,14 +76,66 @@ async def query_alienvault(
                 pulse_info = gen_data.get("pulse_info", {})
                 pulse_count = pulse_info.get("count", 0)
 
+                now = datetime.datetime.now(datetime.timezone.utc)
+                parsed_pulses = []
+
                 # Extract pulse names (threat campaign names)
-                for pulse in pulse_info.get("pulses", [])[:10]:
+                for pulse in pulse_info.get("pulses", [])[:20]:
                     name = pulse.get("name", "")
+                    author = pulse.get("author_name", "").lower()
+                    created = pulse.get("created", "")
+                    
+                    age_days = 0
+                    if created:
+                        try:
+                            # Ensure we can parse the ISO format easily
+                            clean_date = created.replace("Z", "+00:00")
+                            # Handle weird precision issues
+                            if "." in clean_date:
+                                clean_date = clean_date.split(".")[0] + "+00:00"
+                            dt = datetime.datetime.fromisoformat(clean_date)
+                            age_days = max(0, (now - dt).days)
+                        except Exception:
+                            age_days = 0
+
+                    # Heuristic for auto-generated
+                    is_auto = False
+                    if "alienvault" in author or "bot" in author or "bulk" in name.lower() or "auto" in name.lower():
+                        is_auto = True
+
+                    evidence_type = "unknown"
+                    name_lower = name.lower()
+                    if any(x in name_lower for x in ["c2", "malware", "cobalt strike", "ransomware", "trojan"]):
+                        evidence_type = "direct_malicious"
+                    elif any(x in name_lower for x in ["scanner", "bruteforce", "ssh", "masscan"]):
+                        evidence_type = "direct_malicious"
+                    else:
+                        evidence_type = "historical_reference"
+
+                    # Calculate confidence
+                    confidence = 100.0
+                    if is_auto:
+                        confidence -= 50.0
+                    if age_days > 180:
+                        confidence -= 70.0 # Stale pulse penalty
+
+                    confidence = max(0.0, confidence)
+                    
                     if name:
+                        parsed_pulses.append(OTXPulseAssessment(
+                            pulse_name=name,
+                            pulse_age_days=age_days,
+                            is_auto_generated=is_auto,
+                            confidence=confidence,
+                            evidence_type=evidence_type
+                        ))
+
+                    if name and confidence > 0:
                         pulse_names.append(name)
-                    # Check for adversary attribution
+                        
+                    # Check for adversary attribution (only if confidence is high)
                     adv = pulse.get("adversary", "")
-                    if adv and not adversary:
+                    if adv and not adversary and confidence > 30:
                         adversary = adv
 
                 reputation_score = gen_data.get("reputation", 0)
@@ -118,6 +171,7 @@ async def query_alienvault(
             pulse_names=pulse_names[:5],
             adversary=adversary,
             country=country,
+            pulses=parsed_pulses,
             available=True,
         )
 

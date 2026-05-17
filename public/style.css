@@ -653,6 +653,7 @@ body {
 .score-circle.suspicious { background: var(--yellow-bg); color: #fbbf24; border: 1px solid #f59e0b; }
 .score-circle.likely-mal { background: var(--orange-bg); color: #fb923c; border: 1px solid #f97316; }
 .score-circle.malicious  { background: var(--red-bg); color: #f87171; border: 1px solid #ef4444; }
+.score-circle.insufficient { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid #64748b; }
 
 .classification-label {
     font-family: var(--font-head);
@@ -664,6 +665,7 @@ body {
 .classification-label.suspicious { color: #fbbf24; }
 .classification-label.likely-mal { color: #fb923c; }
 .classification-label.malicious  { color: #f87171; }
+.classification-label.insufficient { color: #94a3b8; }
 
 .expand-chevron {
     color: var(--text-muted);

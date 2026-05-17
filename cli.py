@@ -154,6 +154,48 @@ def analyze(
 
     # Print summary table
     _print_summary(reports)
+    _print_details(reports)
+
+
+def _print_details(reports: list[IPIntelligenceReport]) -> None:
+    """Print detailed intelligence context panels."""
+    for r in reports:
+        content = ""
+        
+        # Header: Attribution + Infrastructure
+        infra = getattr(r.risk, 'infrastructure_type', None)
+        attrib = getattr(r.risk, 'attribution_confidence', None)
+        completeness = getattr(r.risk, 'data_completeness', None)
+        threat = getattr(r.risk, 'threat_activity_score', None)
+        
+        header_parts = []
+        if infra:
+            header_parts.append(f"[bold]Infrastructure:[/] {infra.value.replace('_', ' ').title()}")
+        if attrib is not None:
+            color = "green" if attrib >= 90 else "yellow" if attrib >= 70 else "red"
+            header_parts.append(f"[bold]Attribution Confidence:[/] [{color}]{attrib}%[/{color}]")
+        if threat is not None:
+            header_parts.append(f"[bold]Threat Activity:[/] {threat}/100")
+        if completeness is not None:
+            color = "green" if completeness >= 80 else "yellow" if completeness >= 40 else "red"
+            header_parts.append(f"[bold]Data Completeness:[/] [{color}]{completeness}%[/{color}]")
+        
+        if header_parts:
+            content += "  ".join(header_parts) + "\n\n"
+        
+        if r.risk.conflicts:
+            content += "[bold yellow]⚠ Contradictions Detected:[/]\n"
+            for c in r.risk.conflicts:
+                content += f"  [yellow]• {c.severity.upper()}: {c.explanation}[/]\n"
+            content += "\n"
+        if r.risk.reasoning_chain:
+            content += "[bold cyan]🧠 Analyst Reasoning:[/]\n"
+            for reason in r.risk.reasoning_chain:
+                content += f"  [dim]• {reason}[/]\n"
+        
+        if content.strip():
+            console.print(Panel(content.strip(), title=f"[bold]Intelligence Context: {r.ip}[/]", border_style="dim", padding=(1, 2)))
+    console.print()
 
 
 def _print_summary(reports: list[IPIntelligenceReport]) -> None:
@@ -170,16 +212,22 @@ def _print_summary(reports: list[IPIntelligenceReport]) -> None:
     table.add_column("IP", style="bold white", min_width=15)
     table.add_column("Score", justify="center", min_width=6)
     table.add_column("Classification", min_width=16)
+    table.add_column("Attrib", justify="center", min_width=6)
+    table.add_column("Infra", min_width=10)
     table.add_column("ASN", min_width=8)
     table.add_column("Country", justify="center", min_width=4)
-    table.add_column("Organization", min_width=20)
     table.add_column("Time", justify="right", min_width=6)
 
     for r in reports:
         score = r.risk.score
         cls_val = r.risk.classification.value
+        attrib = getattr(r.risk, 'attribution_confidence', 100)
+        infra = getattr(r.risk, 'infrastructure_type', None)
+        infra_str = infra.value.replace('_', ' ').title() if infra else "—"
 
-        if score <= 20:
+        if cls_val == "Insufficient Data":
+            score_style = "dim"
+        elif score <= 20:
             score_style = "green"
         elif score <= 50:
             score_style = "yellow"
@@ -187,14 +235,17 @@ def _print_summary(reports: list[IPIntelligenceReport]) -> None:
             score_style = "dark_orange"
         else:
             score_style = "red"
+        
+        attrib_style = "green" if attrib >= 90 else "yellow" if attrib >= 70 else "red"
 
         table.add_row(
             r.ip,
             f"[{score_style}]{score}[/{score_style}]",
             f"[{score_style}]{cls_val}[/{score_style}]",
+            f"[{attrib_style}]{attrib}%[/{attrib_style}]",
+            infra_str,
             r.ownership.asn or "—",
             r.ownership.country or "—",
-            (r.ownership.org or "—")[:30],
             f"{r.query_duration_s}s",
         )
 

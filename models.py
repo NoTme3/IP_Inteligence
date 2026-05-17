@@ -17,6 +17,25 @@ class RiskClassification(str, Enum):
     SUSPICIOUS = "Suspicious"
     LIKELY_MALICIOUS = "Likely Malicious"
     MALICIOUS = "Malicious"
+    INSUFFICIENT_DATA = "Insufficient Data"
+
+
+class SignalCategory(str, Enum):
+    """Evidence classification tier for scoring signals."""
+    DIRECT_MALICIOUS = "direct_malicious"
+    CONTEXTUAL = "contextual"
+    REPUTATION = "reputation"
+    INFRASTRUCTURE = "infrastructure"
+
+
+class InfrastructureType(str, Enum):
+    """Infrastructure classification for attribution confidence."""
+    SHARED_CLOUD = "shared_cloud"
+    CDN = "cdn"
+    RESIDENTIAL = "residential"
+    VPS = "vps"
+    ENTERPRISE = "enterprise"
+    UNKNOWN = "unknown"
 
 
 # ── Input ─────────────────────────────────────────────────────────────────────
@@ -126,6 +145,16 @@ class GreyNoiseResult(BaseModel):
     available: bool = True
 
 
+class OTXPulseAssessment(BaseModel):
+    """Quality assessment of a single OTX pulse."""
+
+    pulse_name: str
+    pulse_age_days: int
+    is_auto_generated: bool
+    confidence: float
+    evidence_type: str
+
+
 class AlienVaultResult(BaseModel):
     """Parsed AlienVault OTX result."""
 
@@ -136,6 +165,7 @@ class AlienVaultResult(BaseModel):
     pulse_names: list[str] = Field(default_factory=list)  # Threat campaign names
     adversary: str = ""  # Known threat group attribution
     country: Optional[str] = None
+    pulses: list[OTXPulseAssessment] = Field(default_factory=list)
     available: bool = True
 
 
@@ -148,6 +178,14 @@ class ScoringSignal(BaseModel):
     name: str
     weight: int
     reason: str
+    category: SignalCategory = SignalCategory.CONTEXTUAL
+
+
+class IntelligenceConflict(BaseModel):
+    """A detected conflict in the intelligence signals."""
+
+    severity: str  # high, medium, low
+    explanation: str
 
 
 class RiskScore(BaseModel):
@@ -156,6 +194,14 @@ class RiskScore(BaseModel):
     score: int = 0
     classification: RiskClassification = RiskClassification.BENIGN
     signals: list[ScoringSignal] = Field(default_factory=list)
+    conflicts: list[IntelligenceConflict] = Field(default_factory=list)
+    reasoning_chain: list[str] = Field(default_factory=list)
+
+    # New evidence-aware fields
+    threat_activity_score: int = 0
+    attribution_confidence: int = 100  # 0-100%
+    infrastructure_type: InfrastructureType = InfrastructureType.UNKNOWN
+    data_completeness: int = 0  # 0-100% — how many feeds responded
 
 
 # ── Full report ───────────────────────────────────────────────────────────────

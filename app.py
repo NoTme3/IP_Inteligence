@@ -21,8 +21,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from collections import defaultdict
 
-# ── Import internal modules ───────────────────────────────────────────────────
+# ── Internal Modules ──────────────────────────────────────────────────────────
 from core.pipeline import enrich_single_web
 from models import IPIntelligenceReport
 from utils.http_client import create_client
@@ -38,17 +39,47 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000"
+    ],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
+# ── Rate Limiting ─────────────────────────────────────────────────────────────
+
+RATE_LIMIT_DURATION = 60
+MAX_REQUESTS_PER_MINUTE = 30
+_rate_limits = defaultdict(list)
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    # Only limit API endpoints
+    if request.url.path.startswith("/api/"):
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        
+        # Clean old requests
+        _rate_limits[client_ip] = [t for t in _rate_limits[client_ip] if now - t < RATE_LIMIT_DURATION]
+        
+        if len(_rate_limits[client_ip]) >= MAX_REQUESTS_PER_MINUTE:
+            return JSONResponse(
+                status_code=429,
+                content={"error": "Rate limit exceeded. Please try again later."}
+            )
+            
+        _rate_limits[client_ip].append(now)
+        
+    return await call_next(request)
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    import traceback
+    # Do not leak stack traces to the frontend in production
     return JSONResponse(
         status_code=500,
-        content={"error": f"Internal Server Error: {str(exc)}", "traceback": traceback.format_exc()}
+        content={"error": f"Internal Server Error: {str(exc)}"}
     )
 
 # ── Constants ─────────────────────────────────────────────────────────────────

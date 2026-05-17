@@ -151,8 +151,13 @@ function helpTip(text) {
 }
 
 function classLabel(cls) {
-    const map = { 'Benign': 'benign', 'Suspicious': 'suspicious', 'Likely Malicious': 'likely-mal', 'Malicious': 'malicious' };
+    const map = { 'Benign': 'benign', 'Suspicious': 'suspicious', 'Likely Malicious': 'likely-mal', 'Malicious': 'malicious', 'Insufficient Data': 'insufficient' };
     return map[cls] || 'benign';
+}
+
+function infraLabel(type) {
+    const map = { 'shared_cloud': '☁ Cloud', 'cdn': '🌐 CDN', 'residential': '🏠 Residential', 'vps': '🖥 VPS', 'enterprise': '🏢 Enterprise', 'unknown': '❓ Unknown' };
+    return map[type] || type;
 }
 
 function generateSummary(r) {
@@ -174,8 +179,8 @@ function generateSummary(r) {
 
     // VirusTotal
     if (vt.available) {
-        if (vt.malicious > 0) parts.push(`<strong>${vt.malicious}</strong> antivirus engine(s) on VirusTotal flagged it as malicious${vt.suspicious > 0 ? ` and ${vt.suspicious} flagged it as suspicious` : ''}.`);
-        else parts.push('No antivirus engines on VirusTotal flagged this IP.');
+        if (vt.malicious > 0) parts.push(`<strong>${vt.malicious}</strong> security vendor(s) on VirusTotal flag this IP as malicious.`);
+        else parts.push('No malicious telemetry reported on VirusTotal.');
     }
 
     // AbuseIPDB
@@ -198,18 +203,19 @@ function generateSummary(r) {
 
     // GreyNoise
     if (gn.available) {
-        if (gn.riot) parts.push(`GreyNoise identifies this IP as a <strong style="color:#34d399">known-good service</strong> (RIOT)${gn.name ? ` — ${gn.name}` : ''}.`);
-        else if (gn.seen && gn.classification === 'malicious') parts.push(`GreyNoise classifies this as a <strong style="color:#f87171">malicious mass-scanner</strong>.`);
-        else if (gn.seen) parts.push(`GreyNoise has observed this IP as internet background noise (${gn.classification || 'unknown'}).`);
-        else parts.push('GreyNoise has not observed this IP scanning the internet.');
+        if (gn.riot) parts.push(`GreyNoise identifies this IP as a highly trusted <strong style="color:#34d399">known-good service</strong> (RIOT)${gn.name ? ` — ${gn.name}` : ''}.`);
+        else if (gn.seen && gn.classification === 'malicious') parts.push(`GreyNoise reports active <strong style="color:#f87171">malicious scanning</strong> from this IP.`);
+        else if (gn.seen) parts.push(`GreyNoise has observed this IP generating background noise (${gn.classification || 'unknown'}).`);
     }
 
     // AlienVault OTX
     if (otx.available) {
-        if (otx.pulse_count > 0) {
-            parts.push(`AlienVault OTX links this IP to <strong style="color:#fbbf24">${otx.pulse_count}</strong> threat campaign(s)${otx.adversary ? ` attributed to <strong style="color:#f87171">${escHtml(otx.adversary)}</strong>` : ''}.`);
+        const curated = (otx.pulses || []).filter(p => !p.is_auto_generated).length;
+        if (curated > 0) {
+            parts.push(`Referenced in <strong style="color:#fbbf24">${curated}</strong> curated community threat campaign(s)${otx.adversary ? ` discussing <strong style="color:#f87171">${escHtml(otx.adversary)}</strong>` : ''}.`);
+        } else if (otx.pulse_count > 0) {
+            parts.push(`Referenced in automated/bulk OTX pulse feeds.`);
         }
-        if (otx.malware_count > 0) parts.push(`<strong>${otx.malware_count}</strong> malware sample(s) associated.`);
     }
 
     return parts.join(' ');
@@ -245,20 +251,60 @@ function renderCard(report, index) {
 
     let signalsHtml = '';
     if (r.risk.signals && r.risk.signals.length > 0) {
+        const catOrder = ['direct_malicious', 'contextual', 'reputation', 'infrastructure'];
+        const catLabels = { direct_malicious: '🚨 Direct Malicious Evidence', contextual: '🔍 Contextual Intelligence', reputation: '⭐ Reputation Signals', infrastructure: '🏢 Infrastructure' };
+        const grouped = {};
+        r.risk.signals.forEach(s => {
+            const cat = s.category || 'contextual';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(s);
+        });
+        const rows = catOrder.filter(c => grouped[c]).map(cat => {
+            const label = catLabels[cat] || cat;
+            return `<tr class="signal-category-header"><td colspan="3" style="font-size:0.75rem;text-transform:uppercase;color:var(--accent);padding:0.75rem 0.5rem 0.25rem;border:none;font-weight:700;">${label}</td></tr>` +
+                grouped[cat].map(s => `
+                    <tr>
+                        <td class="weight ${s.weight >= 0 ? 'weight-positive' : 'weight-negative'}">${s.weight >= 0 ? '+' : ''}${s.weight}</td>
+                        <td style="font-weight:600;">${escHtml(s.name)}</td>
+                        <td style="color:var(--text-muted)">${escHtml(s.reason)}</td>
+                    </tr>
+                `).join('');
+        }).join('');
         signalsHtml = `
         <div class="signals-section">
+            <h4 style="font-size:0.85rem;text-transform:uppercase;color:var(--text-bright);margin-bottom:0.75rem;padding-bottom:0.5rem;">Evidence Breakdown</h4>
             <table class="signals-table">
-                <thead><tr><th>Weight</th><th>Signal Activity</th><th>Reasoning Context</th></tr></thead>
-                <tbody>
-                    ${r.risk.signals.map(s => `
-                        <tr>
-                            <td class="weight ${s.weight >= 0 ? 'weight-positive' : 'weight-negative'}">${s.weight >= 0 ? '+' : ''}${s.weight}</td>
-                            <td style="font-weight:600;">${escHtml(s.name)}</td>
-                            <td style="color:var(--text-muted)">${escHtml(s.reason)}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
+                <thead><tr><th>Weight</th><th>Signal</th><th>Context</th></tr></thead>
+                <tbody>${rows}</tbody>
             </table>
+        </div>`;
+    }
+
+    let conflictsHtml = '';
+    if (r.risk.conflicts && r.risk.conflicts.length > 0) {
+        conflictsHtml = `
+        <div class="conflicts-section" style="margin:1rem 1.5rem;background:rgba(251, 191, 36, 0.1);border-left:4px solid #fbbf24;padding:1rem;border-radius:var(--radius-sm);">
+            <div style="color:#fbbf24;font-weight:700;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                Contradictory Intelligence Detected
+            </div>
+            ${r.risk.conflicts.map(c => `<div style="font-size:0.85rem;color:var(--text-bright); margin-bottom: 0.25rem;"><strong>${c.severity.toUpperCase()}:</strong> ${escHtml(c.explanation)}</div>`).join('')}
+        </div>`;
+    }
+
+    let reasoningHtml = '';
+    if (r.risk.reasoning_chain && r.risk.reasoning_chain.length > 0) {
+        reasoningHtml = `
+        <div class="reasoning-section" style="margin:1.5rem;padding:1rem;background:rgba(0,0,0,0.2);border-radius:var(--radius-sm);border:1px solid rgba(255,255,255,0.05);">
+            <h4 style="font-size:0.85rem;text-transform:uppercase;color:var(--text-bright);margin-bottom:0.75rem;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:0.5rem;">Why? (Analyst Reasoning)</h4>
+            <ul style="list-style-type:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.6rem;">
+                ${r.risk.reasoning_chain.map(reason => `
+                    <li style="display:flex;gap:0.5rem;align-items:flex-start;font-size:0.85rem;color:var(--text-bright);line-height:1.4;">
+                        <svg style="flex-shrink:0;color:var(--accent);margin-top:0.15rem;" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        <span>${escHtml(reason)}</span>
+                    </li>
+                `).join('')}
+            </ul>
         </div>`;
     }
 
@@ -271,6 +317,11 @@ function renderCard(report, index) {
     const vulnsList = (shodan.vulns || []).map(v => escHtml(v)).join(', ');
     const hostnamesList = (shodan.hostnames || []).map(h => escHtml(h)).join(', ');
 
+    const attribConf = r.risk.attribution_confidence != null ? r.risk.attribution_confidence : 100;
+    const infraType = r.risk.infrastructure_type || 'unknown';
+    const dataComp = r.risk.data_completeness != null ? r.risk.data_completeness : 100;
+    const threatScore = r.risk.threat_activity_score != null ? r.risk.threat_activity_score : score;
+
     card.innerHTML = `
         <div class="ip-card-header" onclick="toggleCard(this)">
             <div class="ip-card-left">
@@ -279,12 +330,17 @@ function renderCard(report, index) {
                     ${own.country ? `<span class="tag tag-country">${escHtml(own.country)}</span>` : ''}
                     ${own.asn ? `<span class="tag tag-asn">AS${escHtml(own.asn)}</span>` : ''}
                     ${own.org ? `<span class="tag tag-org">${escHtml(own.org)}</span>` : ''}
+                    <span class="tag" style="background:rgba(139,92,246,0.15);color:#a78bfa;">${infraLabel(infraType)}</span>
                 </div>
             </div>
             <div class="ip-card-right">
                 <div class="score-badge">
                     <span class="classification-label ${cls}">${r.risk.classification}</span>
                     <span class="score-circle ${cls}">${score}</span>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:0.15rem;margin-left:0.75rem;">
+                    <span style="font-size:0.6rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.05em;">Attrib</span>
+                    <span style="font-size:0.85rem;font-weight:700;font-family:var(--mono);color:${attribConf >= 90 ? '#34d399' : attribConf >= 70 ? '#fbbf24' : '#f87171'};">${attribConf}%</span>
                 </div>
                 <span class="expand-chevron">▼</span>
             </div>
@@ -361,7 +417,31 @@ function renderCard(report, index) {
                         ${otx.pulse_names && otx.pulse_names.length ? `<div style="margin-top:0.8rem;"><div class="key" style="margin-bottom:0.2rem;">Threat Campaigns</div><div class="domain-list">${otx.pulse_names.map(p=>escHtml(p)).join(', ')}</div></div>` : ''}
                     ` : `<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">OTX data unavailable</div>`}
                 </div>
+
+                <div class="detail-section" style="grid-column: 1 / -1;">
+                    <h4>Feed Intelligence Confidence ${helpTip('Visual representation of the reliability weight assigned to each intelligence source. Higher confidence sources have more impact on the final score.')}</h4>
+                    <div class="confidence-bars" style="display:flex; flex-direction:column; gap:0.6rem; margin-top:0.5rem; background:rgba(0,0,0,0.2); padding:1rem; border-radius:var(--radius-sm); border:1px solid rgba(255,255,255,0.05);">
+                        ${[
+                            {name: "GreyNoise", conf: 95, color: "#34d399", val: gn.available},
+                            {name: "VirusTotal", conf: 85, color: "#60a5fa", val: vt.available},
+                            {name: "AbuseIPDB", conf: 75, color: "#fbbf24", val: abuse.available},
+                            {name: "Shodan", conf: 60, color: "#a78bfa", val: shodan.available},
+                            {name: "OTX (Curated)", conf: 55, color: "#f87171", val: otx.available},
+                            {name: "OTX (Automated)", conf: 15, color: "#9ca3af", val: otx.available}
+                        ].map(f => `
+                            <div style="display:flex; align-items:center; gap:1rem; font-size:0.8rem; font-family:var(--mono);">
+                                <div style="width:130px; color:${f.val ? 'var(--text-bright)' : 'var(--text-muted)'}">${f.name}</div>
+                                <div style="flex:1; background:rgba(255,255,255,0.05); height:8px; border-radius:4px; overflow:hidden; position:relative;">
+                                    <div style="position:absolute; left:0; top:0; height:100%; width:${f.conf}%; background:${f.val ? f.color : 'rgba(255,255,255,0.1)'}; opacity:${f.val ? '1' : '0.3'};"></div>
+                                </div>
+                                <div style="width:40px; text-align:right; color:${f.val ? 'var(--text-bright)' : 'var(--text-muted)'}">${f.conf}%</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
             </div>
+            ${conflictsHtml}
+            ${reasoningHtml}
             ${signalsHtml}
         </div>
     `;
