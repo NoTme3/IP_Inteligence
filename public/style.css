@@ -909,9 +909,9 @@ body {
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 .footer {
-    padding: 0.75rem 1.5rem;
+    padding: 1.5rem 1.5rem 2rem;
     border-top: 1px solid var(--glass-border);
-    margin-top: 1rem;
+    margin-top: 2rem;
     background: linear-gradient(to bottom, transparent, rgba(10, 15, 30, 0.5));
 }
 
@@ -923,7 +923,7 @@ body {
     align-items: center;
     flex-wrap: wrap;
     gap: 1rem;
-    padding-bottom: 0.5rem;
+    padding-bottom: 1rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -957,6 +957,7 @@ body {
 .footer-links {
     display: flex;
     gap: 1.5rem;
+    align-items: center;
 }
 
 .footer-links a {
@@ -972,7 +973,7 @@ body {
 
 .footer-bottom {
     max-width: 1200px;
-    margin: 0.5rem auto 0;
+    margin: 1rem auto 0;
     text-align: center;
     font-size: 0.7rem;
     font-family: var(--mono);
