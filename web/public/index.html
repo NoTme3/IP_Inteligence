@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Intelligence — Modern Threat Analysis</title>
+    <meta name="description" content="State-of-the-art IP address threat intelligence and passive reconnaissance.">
+    <link rel="stylesheet" href="/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>">
+</head>
+<body>
+
+    <!-- Animated Background Layers -->
+    <div class="bg-anim">
+        <div class="bg-orb orb-1"></div>
+        <div class="bg-orb orb-2"></div>
+        <div class="bg-orb orb-3"></div>
+        <div class="bg-grid"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-inner">
+            <h1>
+                <span class="icon">🛡</span>
+                IP Intel
+            </h1>
+            <button class="btn-settings" id="btn-settings" title="Settings">
+                ⚙️ <span>Keys & Settings</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="glass-panel modal">
+            <div class="modal-header">
+                <h2>Provider API Keys</h2>
+                <button class="modal-close" id="btn-close-settings">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+                    Keys are stored entirely locally in your browser's <code>localStorage</code>. They are sent per-request and never saved on our servers.
+                </p>
+                <div class="key-row">
+                    <label>VirusTotal</label>
+                    <div class="key-input-wrap">
+                        <input type="password" id="key-vt" placeholder="Enter VT API key" autocomplete="off">
+                        <button class="key-toggle-vis" data-target="key-vt" type="button">👁</button>
+                    </div>
+                    <span class="key-status-text" id="status-vt">Inactive</span>
+                </div>
+                <div class="key-row">
+                    <label>AbuseIPDB</label>
+                    <div class="key-input-wrap">
+                        <input type="password" id="key-abuse" placeholder="Enter AbuseIPDB API key" autocomplete="off">
+                        <button class="key-toggle-vis" data-target="key-abuse" type="button">👁</button>
+                    </div>
+                    <span class="key-status-text" id="status-abuse">Inactive</span>
+                </div>
+                <div class="key-row">
+                    <label>Shodan</label>
+                    <div class="key-input-wrap">
+                        <input type="password" id="key-shodan" placeholder="Enter Shodan API key (Optional)" autocomplete="off">
+                        <button class="key-toggle-vis" data-target="key-shodan" type="button">👁</button>
+                    </div>
+                    <span class="key-status-text" id="status-shodan">Using Free InternetDB Fallback</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-save" id="btn-save-settings">Save & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="container">
+
+        <!-- Input Section -->
+        <section class="glass-panel input-area">
+            <textarea id="ip-input" placeholder="Drop IPs here (one per line, comma or space separated)&#10;&#10;Examples:&#10;8.8.8.8&#10;1.1.1.1, 9.9.9.9&#10;208.67.222.222"></textarea>
+            
+            <div class="input-controls">
+                <div class="ip-count" id="ip-count">0 IP(s) ready</div>
+                <div class="action-buttons">
+                    <input type="file" id="file-upload" accept=".txt,.csv" style="display: none;">
+                    <button class="btn-upload" id="btn-upload">
+                        📁 <span>Upload File</span>
+                    </button>
+                    <button class="btn-analyze" id="btn-analyze" disabled>
+                        <span class="spinner"></span>
+                        <span class="btn-text">🚀 Analyze Now</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Progress Container -->
+        <div class="progress-container" id="progress-container">
+            <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-text" id="progress-text">Initializing stream...</div>
+        </div>
+
+        <!-- Dashboard Summary -->
+        <div class="summary-bar" id="summary-bar">
+            <div class="glass-panel stat-card total">
+                <span class="stat-label">Total Processed</span>
+                <span class="stat-value" id="stat-total" data-val="0">0</span>
+            </div>
+            <div class="glass-panel stat-card benign">
+                <span class="stat-label">Benign</span>
+                <span class="stat-value" id="stat-benign" data-val="0">0</span>
+            </div>
+            <div class="glass-panel stat-card suspicious">
+                <span class="stat-label">Suspicious</span>
+                <span class="stat-value" id="stat-suspicious" data-val="0">0</span>
+            </div>
+            <div class="glass-panel stat-card likely-mal">
+                <span class="stat-label">Likely Malicious</span>
+                <span class="stat-value" id="stat-likely-mal" data-val="0">0</span>
+            </div>
+            <div class="glass-panel stat-card malicious">
+                <span class="stat-label">Malicious</span>
+                <span class="stat-value" id="stat-malicious" data-val="0">0</span>
+            </div>
+        </div>
+
+        <!-- Results Area -->
+        <div class="controls-header" id="controls-header">
+            <h3 style="font-family: var(--font-head); color: var(--text-bright); font-size: 1.25rem;">Intelligence Reports</h3>
+            <div class="export-group">
+                <button class="btn-export" id="btn-export-json">JSON</button>
+                <button class="btn-export" id="btn-export-csv">CSV</button>
+                <button class="btn-export" id="btn-export-html">HTML</button>
+            </div>
+        </div>
+
+        <section class="results-container" id="results-container">
+            <div class="empty-state" id="empty-state">
+                <div class="icon">📡</div>
+                <h3>Awaiting Input</h3>
+                <p>Provide IP addresses and hit analyze to stream real-time threat intelligence data.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="footer">
+        Powered by IP-Intel Engine • Passive Reconnaissance • Local Execution
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>

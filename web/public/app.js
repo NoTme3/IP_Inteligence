@@ -1,0 +1,449 @@
+/**
+ * IP Intelligence — Modern Web Interface JS
+ * Includes numeric counter animations, staggered entrances, and fluid SSE processing.
+ */
+
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+    reports: [],
+    analyzing: false,
+};
+
+// ── DOM Elements ─────────────────────────────────────────────────────────────
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+const els = {
+    btnSettings: $('#btn-settings'),
+    settingsModal: $('#settings-modal'),
+    btnCloseSettings: $('#btn-close-settings'),
+    btnSaveSettings: $('#btn-save-settings'),
+    ipInput: $('#ip-input'),
+    ipCount: $('#ip-count'),
+    btnAnalyze: $('#btn-analyze'),
+    btnUpload: $('#btn-upload'),
+    fileUpload: $('#file-upload'),
+    progressContainer: $('#progress-container'),
+    progressFill: $('#progress-fill'),
+    progressText: $('#progress-text'),
+    summaryBar: $('#summary-bar'),
+    controlsHeader: $('#controls-header'),
+    resultsContainer: $('#results-container'),
+    emptyState: $('#empty-state'),
+    keyVt: $('#key-vt'),
+    keyAbuse: $('#key-abuse'),
+    keyShodan: $('#key-shodan')
+};
+
+// ── Number Counter Animation ─────────────────────────────────────────────────
+function animateValue(obj, start, end, duration) {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        // easeOutQuart
+        const ease = 1 - Math.pow(1 - progress, 4);
+        obj.innerHTML = Math.floor(ease * (end - start) + start);
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        } else {
+            obj.innerHTML = end;
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+function updateCounterEl(id, newValue) {
+    const el = $(id);
+    const currentValue = parseInt(el.dataset.val || "0", 10);
+    if (currentValue !== newValue) {
+        el.dataset.val = newValue;
+        animateValue(el, currentValue, newValue, 800);
+    }
+}
+
+// ── API Keys ─────────────────────────────────────────────────────────────────
+function loadKeys() {
+    els.keyVt.value = localStorage.getItem('ip_intel_vt_key') || '';
+    els.keyAbuse.value = localStorage.getItem('ip_intel_abuse_key') || '';
+    els.keyShodan.value = localStorage.getItem('ip_intel_shodan_key') || '';
+    updateKeyStatus();
+}
+
+function saveKeys() {
+    localStorage.setItem('ip_intel_vt_key', els.keyVt.value.trim());
+    localStorage.setItem('ip_intel_abuse_key', els.keyAbuse.value.trim());
+    localStorage.setItem('ip_intel_shodan_key', els.keyShodan.value.trim());
+    updateKeyStatus();
+}
+
+function getKeys() {
+    return {
+        virustotal: els.keyVt.value.trim(),
+        abuseipdb: els.keyAbuse.value.trim(),
+        shodan: els.keyShodan.value.trim(),
+    };
+}
+
+function updateKeyStatus() {
+    const vt = els.keyVt.value.trim();
+    const abuse = els.keyAbuse.value.trim();
+    const shodan = els.keyShodan.value.trim();
+
+    $('#status-vt').textContent = vt ? '✅ Active' : 'Inactive';
+    $('#status-vt').style.color = vt ? 'var(--green)' : 'var(--text-muted)';
+    
+    $('#status-abuse').textContent = abuse ? '✅ Active' : 'Inactive';
+    $('#status-abuse').style.color = abuse ? 'var(--green)' : 'var(--text-muted)';
+    
+    $('#status-shodan').textContent = shodan ? '✅ Shodan API Active' : '🌐 Using Free InternetDB';
+    $('#status-shodan').style.color = shodan ? 'var(--green)' : 'var(--accent)';
+}
+
+// ── IP Parsing ───────────────────────────────────────────────────────────────
+function parseIPs(text) {
+    const ips = text.split(/[\n,\s]+/).map(s => s.trim()).filter(s => s.length > 0)
+                    .filter(s => /^(\d{1,3}\.){3}\d{1,3}$/.test(s) || s.includes(':'));
+    return [...new Set(ips)];
+}
+
+function handleIPInputChange() {
+    const ips = parseIPs(els.ipInput.value);
+    const count = ips.length;
+    els.ipCount.textContent = `${count} IP(s) ready`;
+    els.btnAnalyze.disabled = count === 0 || state.analyzing;
+
+    if (count > 10) {
+        els.ipCount.style.color = 'var(--red)';
+        els.ipCount.textContent = `${count} IPs (max 10 on web)`;
+    } else {
+        els.ipCount.style.color = 'var(--text-muted)';
+    }
+}
+
+// ── Card Rendering ───────────────────────────────────────────────────────────
+function escHtml(str) {
+    if (!str) return '';
+    const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
+}
+
+function classLabel(cls) {
+    const map = { 'Benign': 'benign', 'Suspicious': 'suspicious', 'Likely Malicious': 'likely-mal', 'Malicious': 'malicious' };
+    return map[cls] || 'benign';
+}
+
+function renderCard(report, index) {
+    const r = report;
+    const cls = classLabel(r.risk.classification);
+    const score = r.risk.score;
+    const own = r.ownership || {};
+    const vt = r.virustotal || {};
+    const abuse = r.abuseipdb || {};
+    const shodan = r.shodan || {};
+    const dns = r.dns || {};
+
+    let servicesHtml = '';
+    if (shodan.services && shodan.services.length > 0) {
+        servicesHtml = `<div style="margin-top:1rem;border-top:1px dashed rgba(255,255,255,0.1);padding-top:1rem;">
+            <span style="font-size:0.75rem;font-family:var(--font-head);text-transform:uppercase;color:var(--text-bright);">Detected Services</span>
+            ${shodan.services.map(svc => `
+                <div class="service-item">
+                    <div class="service-header">
+                        <span class="service-port">Port ${svc.port}/${svc.protocol || 'tcp'}</span>
+                        <span class="service-name">${escHtml(svc.service || 'Unknown')} ${escHtml(svc.version || '')}</span>
+                    </div>
+                    ${svc.banner ? `<div class="service-banner">${escHtml(svc.banner)}</div>` : ''}
+                </div>
+            `).join('')}
+        </div>`;
+    }
+
+    let signalsHtml = '';
+    if (r.risk.signals && r.risk.signals.length > 0) {
+        signalsHtml = `
+        <div class="signals-section">
+            <table class="signals-table">
+                <thead><tr><th>Weight</th><th>Signal Activity</th><th>Reasoning Context</th></tr></thead>
+                <tbody>
+                    ${r.risk.signals.map(s => `
+                        <tr>
+                            <td class="weight ${s.weight >= 0 ? 'weight-positive' : 'weight-negative'}">${s.weight >= 0 ? '+' : ''}${s.weight}</td>
+                            <td style="font-weight:600;">${escHtml(s.name)}</td>
+                            <td style="color:var(--text-muted)">${escHtml(s.reason)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>`;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'glass-panel ip-card';
+    // Stagger animation based on index
+    card.style.animationDelay = `${(index % 10) * 0.1}s`;
+    
+    const domainsList = (vt.historic_domains || []).map(d => escHtml(d)).join(', ');
+    const vulnsList = (shodan.vulns || []).map(v => escHtml(v)).join(', ');
+    const hostnamesList = (shodan.hostnames || []).map(h => escHtml(h)).join(', ');
+
+    card.innerHTML = `
+        <div class="ip-card-header" onclick="toggleCard(this)">
+            <div class="ip-card-left">
+                <span class="ip-card-ip">${escHtml(r.ip)}</span>
+                <div class="ip-card-tags">
+                    ${own.country ? `<span class="tag tag-country">${escHtml(own.country)}</span>` : ''}
+                    ${own.asn ? `<span class="tag tag-asn">AS${escHtml(own.asn)}</span>` : ''}
+                    ${own.org ? `<span class="tag tag-org">${escHtml(own.org)}</span>` : ''}
+                </div>
+            </div>
+            <div class="ip-card-right">
+                <div class="score-badge">
+                    <span class="classification-label ${cls}">${r.risk.classification}</span>
+                    <span class="score-circle ${cls}">${score}</span>
+                </div>
+                <span class="expand-chevron">▼</span>
+            </div>
+        </div>
+        <div class="ip-card-details">
+            <div class="details-grid">
+                <div class="detail-section">
+                    <h4>🌐 Network Identity</h4>
+                    <div class="detail-row"><span class="key">ASN</span><span class="val">${escHtml(own.asn || '—')}</span></div>
+                    <div class="detail-row"><span class="key">Organization</span><span class="val">${escHtml(own.org || '—')}</span></div>
+                    <div class="detail-row"><span class="key">CIDR Range</span><span class="val">${escHtml(own.cidr || '—')}</span></div>
+                    <div class="detail-row"><span class="key">Country</span><span class="val">${escHtml(own.country || '—')}</span></div>
+                    <div class="detail-row"><span class="key">Registry</span><span class="val">${escHtml(own.rir || '—')}</span></div>
+                    <div class="detail-row"><span class="key">PTR Record</span><span class="val">${escHtml(dns.ptr || '—')}</span></div>
+                </div>
+
+                <div class="detail-section">
+                    <h4>⚠️ VirusTotal Telemetry</h4>
+                    ${vt.available ? `
+                        <div class="detail-row"><span class="key">Malicious Flags</span><span class="val" style="color:${vt.malicious > 0 ? '#f87171' : 'var(--text-bright)'}">${vt.malicious}</span></div>
+                        <div class="detail-row"><span class="key">Suspicious Flags</span><span class="val" style="color:${vt.suspicious > 0 ? '#fbbf24' : 'var(--text-bright)'}">${vt.suspicious}</span></div>
+                        <div class="detail-row"><span class="key">Harmless Flags</span><span class="val">${vt.harmless}</span></div>
+                        <div class="detail-row"><span class="key">Reputation Score</span><span class="val">${vt.reputation}</span></div>
+                        <div class="detail-row"><span class="key">AS Owner</span><span class="val">${escHtml(vt.as_owner || '—')}</span></div>
+                        ${domainsList ? `<div style="margin-top:0.8rem;"><div class="key" style="margin-bottom:0.2rem;">Historic Resolutions</div><div class="domain-list">${domainsList}</div></div>` : ''}
+                    ` : `<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">Telemetry unavailable (No API Key)</div>`}
+                </div>
+
+                <div class="detail-section">
+                    <h4>🚨 AbuseIPDB Reports</h4>
+                    ${abuse.available ? `
+                        <div class="detail-row"><span class="key">Confidence Score</span><span class="val" style="color:${abuse.abuse_confidence_score > 70 ? '#f87171' : abuse.abuse_confidence_score > 40 ? '#fbbf24' : '#34d399'}">${abuse.abuse_confidence_score}%</span></div>
+                        <div class="detail-row"><span class="key">Total Reports</span><span class="val">${abuse.total_reports}</span></div>
+                        <div class="detail-row"><span class="key">Whitelisted</span><span class="val">${abuse.is_whitelisted ? '✅ Yes' : 'No'}</span></div>
+                        <div class="detail-row"><span class="key">ISP / Hosting</span><span class="val">${escHtml(abuse.isp || '—')}</span></div>
+                        <div class="detail-row"><span class="key">Usage Type</span><span class="val">${escHtml(abuse.usage_type || '—')}</span></div>
+                    ` : `<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">Telemetry unavailable (No API Key)</div>`}
+                </div>
+
+                <div class="detail-section">
+                    <h4>🔍 Shodan Surface</h4>
+                    ${shodan.available ? `
+                        <div class="detail-row"><span class="key">Open Ports</span><span class="val">${shodan.open_ports && shodan.open_ports.length ? shodan.open_ports.join(', ') : '<span style="color:var(--text-muted)">Clean</span>'}</span></div>
+                        ${hostnamesList ? `<div class="detail-row"><span class="key">Hostnames</span><span class="val">${hostnamesList}</span></div>` : ''}
+                        ${vulnsList ? `<div style="margin-top:0.8rem;"><div class="key" style="color:#f87171;margin-bottom:0.2rem;">CVE Vulnerabilities</div><div class="vuln-list">${vulnsList}</div></div>` : ''}
+                        ${servicesHtml}
+                    ` : `<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">Scanner unreachable</div>`}
+                </div>
+            </div>
+            ${signalsHtml}
+        </div>
+    `;
+    return card;
+}
+
+window.toggleCard = function(headerEl) {
+    const card = headerEl.closest('.ip-card');
+    card.classList.toggle('expanded');
+};
+
+// ── Summary Update ───────────────────────────────────────────────────────────
+function updateSummary() {
+    const reports = state.reports;
+    const total = reports.length;
+    
+    updateCounterEl('#stat-total', total);
+    updateCounterEl('#stat-benign', reports.filter(r => r.risk.classification === 'Benign').length);
+    updateCounterEl('#stat-suspicious', reports.filter(r => r.risk.classification === 'Suspicious').length);
+    updateCounterEl('#stat-likely-mal', reports.filter(r => r.risk.classification === 'Likely Malicious').length);
+    updateCounterEl('#stat-malicious', reports.filter(r => r.risk.classification === 'Malicious').length);
+
+    if (total > 0) {
+        els.summaryBar.classList.add('visible');
+        els.controlsHeader.classList.add('visible');
+    }
+}
+
+// ── Analyze SSE ──────────────────────────────────────────────────────────────
+async function analyze() {
+    const ips = parseIPs(els.ipInput.value);
+    if (ips.length === 0 || state.analyzing) return;
+    if (ips.length > 10) { alert(`Max 10 IPs allowed on web. Sent ${ips.length}.`); return; }
+
+    state.reports = [];
+    state.analyzing = true;
+    
+    els.btnAnalyze.classList.add('loading');
+    els.btnAnalyze.disabled = true;
+    els.emptyState.style.display = 'none';
+    els.resultsContainer.innerHTML = '';
+    
+    els.summaryBar.classList.remove('visible');
+    els.controlsHeader.classList.remove('visible');
+    
+    els.progressContainer.classList.add('active');
+    els.progressFill.style.width = '0%';
+    els.progressText.textContent = `Establishing connection...`;
+
+    // Reset counters to 0
+    ['#stat-total', '#stat-benign', '#stat-suspicious', '#stat-likely-mal', '#stat-malicious'].forEach(id => {
+        $(id).dataset.val = "0"; $(id).textContent = "0";
+    });
+
+    const keys = getKeys();
+    let indexCount = 0;
+
+    try {
+        const resp = await fetch('/api/analyze/stream', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ips, keys }),
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.error || `HTTP ${resp.status}`);
+        }
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            let eventType = '';
+            let eventData = '';
+
+            for (const line of lines) {
+                if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+                else if (line.startsWith('data: ')) {
+                    eventData = line.slice(6);
+                    if (eventType === 'result') {
+                        try {
+                            const payload = JSON.parse(eventData);
+                            state.reports.push(payload.report);
+                            els.resultsContainer.appendChild(renderCard(payload.report, indexCount++));
+                            
+                            const pct = (payload.progress / payload.total * 100).toFixed(0);
+                            els.progressFill.style.width = pct + '%';
+                            els.progressText.textContent = `Streaming data: ${payload.progress} / ${payload.total} complete`;
+                            updateSummary();
+                        } catch (e) { console.error('Parse err:', e); }
+                    } else if (eventType === 'error') {
+                        try {
+                            const payload = JSON.parse(eventData);
+                            const pct = (payload.progress / payload.total * 100).toFixed(0);
+                            els.progressFill.style.width = pct + '%';
+                            els.progressText.textContent = `Error on IP: ${payload.error}`;
+                        } catch (e) {}
+                    } else if (eventType === 'done') {
+                        els.progressText.textContent = `Analysis sequence complete.`;
+                        els.progressFill.style.width = '100%';
+                    }
+                    eventType = ''; eventData = '';
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Analysis error:', err);
+        els.progressText.textContent = `Fatal Error: ${err.message}`;
+    } finally {
+        state.analyzing = false;
+        els.btnAnalyze.classList.remove('loading');
+        els.btnAnalyze.disabled = false;
+        setTimeout(() => els.progressContainer.classList.remove('active'), 2500);
+
+        // Final Sort & Render Stagger
+        state.reports.sort((a, b) => b.risk.score - a.risk.score);
+        els.resultsContainer.innerHTML = '';
+        state.reports.forEach((r, i) => els.resultsContainer.appendChild(renderCard(r, i)));
+        updateSummary();
+
+        if (state.reports.length === 0) {
+            els.emptyState.style.display = 'flex';
+            els.resultsContainer.appendChild(els.emptyState);
+        }
+    }
+}
+
+// ── Exports ──────────────────────────────────────────────────────────────────
+function downloadFile(content, filename, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function exportJSON() { downloadFile(JSON.stringify(state.reports, null, 2), 'ip_intel_report.json', 'application/json'); }
+function exportHTML() { downloadFile(document.documentElement.outerHTML, 'ip_intel_report.html', 'text/html'); }
+function exportCSV() {
+    const h = ['IP', 'Score', 'Class', 'ASN', 'Org', 'Country', 'VT_Mal', 'Abuse_Score', 'Ports'];
+    const r = state.reports.map(r => [
+        r.ip, r.risk.score, r.risk.classification, r.ownership?.asn||'', r.ownership?.org||'', r.ownership?.country||'',
+        r.virustotal?.malicious||0, r.abuseipdb?.abuse_confidence_score||0, (r.shodan?.open_ports||[]).join(';')
+    ]);
+    const csv = [h.join(','), ...r.map(row => row.map(c => `"${c}"`).join(','))].join('\n');
+    downloadFile(csv, 'ip_intel_report.csv', 'text/csv');
+}
+
+// ── Listeners ────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    loadKeys();
+
+    els.btnSettings.addEventListener('click', () => els.settingsModal.classList.add('open'));
+    els.btnCloseSettings.addEventListener('click', () => els.settingsModal.classList.remove('open'));
+    els.btnSaveSettings.addEventListener('click', () => { els.settingsModal.classList.remove('open'); saveKeys(); });
+    els.settingsModal.addEventListener('click', (e) => { if (e.target === els.settingsModal) els.settingsModal.classList.remove('open'); });
+
+    $$('.key-toggle-vis').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const i = $(`#${btn.dataset.target}`);
+            i.type = i.type === 'password' ? 'text' : 'password';
+            btn.textContent = i.type === 'password' ? '👁' : '🙈';
+        });
+    });
+
+    [els.keyVt, els.keyAbuse, els.keyShodan].forEach(i => i.addEventListener('input', saveKeys));
+    els.ipInput.addEventListener('input', handleIPInputChange);
+    
+    els.btnUpload.addEventListener('click', () => els.fileUpload.click());
+    els.fileUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            els.ipInput.value = els.ipInput.value.trim() === '' ? event.target.result : els.ipInput.value + '\n' + event.target.result;
+            handleIPInputChange();
+        };
+        reader.readAsText(file);
+        els.fileUpload.value = '';
+    });
+
+    els.btnAnalyze.addEventListener('click', analyze);
+    els.ipInput.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (!els.btnAnalyze.disabled) analyze(); }
+    });
+
+    $('#btn-export-json').addEventListener('click', exportJSON);
+    $('#btn-export-csv').addEventListener('click', exportCSV);
+    $('#btn-export-html').addEventListener('click', exportHTML);
+});

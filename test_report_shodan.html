@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Intelligence Report</title>
+    <style>
+        /* ── Reset & Base ─────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:           #0b0e14;
+            --surface:      #111720;
+            --surface-2:    #181e2a;
+            --border:       #1e2736;
+            --text:         #c5cdd8;
+            --text-muted:   #6b7a8d;
+            --text-bright:  #e8edf3;
+            --accent:       #3b82f6;
+            --accent-glow:  rgba(59, 130, 246, 0.15);
+
+            --green:        #22c55e;
+            --green-bg:     rgba(34, 197, 94, 0.1);
+            --yellow:       #eab308;
+            --yellow-bg:    rgba(234, 179, 8, 0.1);
+            --orange:       #f97316;
+            --orange-bg:    rgba(249, 115, 22, 0.1);
+            --red:          #ef4444;
+            --red-bg:       rgba(239, 68, 68, 0.1);
+
+            --font:         'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --mono:         'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+            --radius:       12px;
+            --transition:   0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ── Header ───────────────────────────────────────────────────── */
+        .header {
+            background: linear-gradient(135deg, #0f1923 0%, #0b1018 50%, #111720 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 2.5rem 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .header-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-bright);
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header h1 .icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .header-meta {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .header-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        /* ── Summary Cards ────────────────────────────────────────────── */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all var(--transition);
+        }
+
+        .summary-card:hover {
+            border-color: rgba(59, 130, 246, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .summary-card .label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-bright);
+            font-family: var(--mono);
+        }
+
+        .summary-card.total     { border-top: 3px solid var(--accent); }
+        .summary-card.benign    { border-top: 3px solid var(--green); }
+        .summary-card.benign    .value { color: var(--green); }
+        .summary-card.suspicious    { border-top: 3px solid var(--yellow); }
+        .summary-card.suspicious    .value { color: var(--yellow); }
+        .summary-card.likely    { border-top: 3px solid var(--orange); }
+        .summary-card.likely    .value { color: var(--orange); }
+        .summary-card.malicious { border-top: 3px solid var(--red); }
+        .summary-card.malicious .value { color: var(--red); }
+
+        /* ── IP Report Cards ──────────────────────────────────────────── */
+        .ip-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 1rem;
+            overflow: hidden;
+            transition: all var(--transition);
+        }
+
+        .ip-card:hover {
+            border-color: rgba(59, 130, 246, 0.2);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .ip-card-header {
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .ip-card-header:hover {
+            background: var(--surface-2);
+        }
+
+        .ip-addr {
+            font-family: var(--mono);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-bright);
+        }
+
+        .ip-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .ip-tag {
+            font-size: 0.72rem;
+            font-weight: 500;
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .ip-tag.country {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .ip-tag.asn {
+            background: rgba(139, 92, 246, 0.1);
+            color: #a78bfa;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        /* Score badge */
+        .score-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .score-ring {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--mono);
+            font-weight: 700;
+            font-size: 0.95rem;
+            position: relative;
+        }
+
+        .score-ring::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 50%;
+            padding: 2px;
+            background: conic-gradient(var(--ring-color) calc(var(--score-pct) * 3.6deg), transparent 0);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+
+        .classification-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+        }
+
+        .cls-benign    { color: var(--green);  background: var(--green-bg);  }
+        .cls-suspicious { color: var(--yellow); background: var(--yellow-bg); }
+        .cls-likely    { color: var(--orange); background: var(--orange-bg); }
+        .cls-malicious { color: var(--red);    background: var(--red-bg);    }
+
+        .ring-benign    { --ring-color: var(--green);  color: var(--green);  background: var(--green-bg);  }
+        .ring-suspicious { --ring-color: var(--yellow); color: var(--yellow); background: var(--yellow-bg); }
+        .ring-likely    { --ring-color: var(--orange); color: var(--orange); background: var(--orange-bg); }
+        .ring-malicious { --ring-color: var(--red);    color: var(--red);    background: var(--red-bg);    }
+
+        /* Expand toggle */
+        .expand-icon {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            transition: transform var(--transition);
+        }
+
+        .ip-card.open .expand-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Detail body */
+        .ip-card-body {
+            display: none;
+            padding: 0 1.5rem 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .ip-card.open .ip-card-body {
+            display: block;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1.25rem;
+        }
+
+        .detail-section {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+        }
+
+        .detail-section h3 {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 0.3rem 0;
+            font-size: 0.85rem;
+        }
+
+        .detail-row .key {
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .detail-row .val {
+            color: var(--text-bright);
+            font-weight: 500;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-all;
+        }
+
+        /* Signals table */
+        .signals-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .signals-table th {
+            text-align: left;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .signals-table td {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.82rem;
+            border-bottom: 1px solid rgba(30, 39, 54, 0.5);
+            vertical-align: top;
+        }
+
+        .signals-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .signal-weight {
+            font-family: var(--mono);
+            font-weight: 600;
+            font-size: 0.8rem;
+            min-width: 40px;
+            text-align: center;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+        }
+
+        .weight-pos { color: var(--red);   background: var(--red-bg);   }
+        .weight-neg { color: var(--green); background: var(--green-bg); }
+        .weight-zero { color: var(--text-muted); background: rgba(107, 122, 141, 0.1); }
+
+        .signal-name { color: var(--text-bright); font-weight: 500; }
+        .signal-reason { color: var(--text-muted); font-size: 0.78rem; }
+
+        /* Errors */
+        .errors-list {
+            margin-top: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.15);
+            border-radius: 8px;
+        }
+
+        .errors-list .error-item {
+            font-size: 0.8rem;
+            color: var(--red);
+            padding: 0.2rem 0;
+        }
+
+        /* ── Footer ───────────────────────────────────────────────────── */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        /* ── Responsive ───────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .header { padding: 1.5rem 1rem; }
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
+            .detail-grid { grid-template-columns: 1fr; }
+            .ip-card-header { flex-direction: column; align-items: flex-start; }
+            .score-badge { margin-top: 0.5rem; }
+        }
+
+        /* ── Animations ───────────────────────────────────────────────── */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .ip-card {
+            animation: fadeIn 0.4s ease forwards;
+            opacity: 0;
+        }
+
+        .ip-card:nth-child(1) { animation-delay: 0.05s; }
+        .ip-card:nth-child(2) { animation-delay: 0.10s; }
+        .ip-card:nth-child(3) { animation-delay: 0.15s; }
+        .ip-card:nth-child(4) { animation-delay: 0.20s; }
+        .ip-card:nth-child(5) { animation-delay: 0.25s; }
+        .ip-card:nth-child(6) { animation-delay: 0.30s; }
+        .ip-card:nth-child(7) { animation-delay: 0.35s; }
+        .ip-card:nth-child(8) { animation-delay: 0.40s; }
+        .ip-card:nth-child(9) { animation-delay: 0.45s; }
+        .ip-card:nth-child(10) { animation-delay: 0.50s; }
+    </style>
+</head>
+<body>
+
+    <!-- ═══ Header ═══ -->
+    <header class="header">
+        <div class="header-inner">
+            <h1>
+                <span class="icon">🛡</span>
+                IP Intelligence Report
+            </h1>
+            <div class="header-meta">
+                <span>📋 1 IP analyzed</span>
+                <span>🕐 Generated 2026-05-05 19:49:16 UTC</span>
+                <span>⚡ ip-intel v1.0</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- ═══ Summary Cards ═══ -->
+        <div class="summary-grid">
+            <div class="summary-card total">
+                <div class="label">Total IPs</div>
+                <div class="value">1</div>
+            </div>
+            <div class="summary-card benign">
+                <div class="label">Benign</div>
+                <div class="value">1</div>
+            </div>
+            <div class="summary-card suspicious">
+                <div class="label">Suspicious</div>
+                <div class="value">0</div>
+            </div>
+            <div class="summary-card likely">
+                <div class="label">Likely Malicious</div>
+                <div class="value">0</div>
+            </div>
+            <div class="summary-card malicious">
+                <div class="label">Malicious</div>
+                <div class="value">0</div>
+            </div>
+        </div>
+
+        <!-- ═══ IP Report Cards ═══ -->
+        
+        
+        
+        
+        <div class="ip-card" id="ip-8-8-8-8">
+            <div class="ip-card-header" onclick="this.parentElement.classList.toggle('open')">
+                <div>
+                    <div class="ip-addr">8.8.8.8</div>
+                    <div class="ip-meta-row" style="margin-top: 0.4rem;">
+                        
+                        <span class="ip-tag country">US</span>
+                        
+                        
+                        <span class="ip-tag asn">AS15169</span>
+                        
+                        
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">GOGL</span>
+                        
+                    </div>
+                </div>
+                <div class="score-badge">
+                    <div class="score-ring ring-benign" style="--score-pct: 0">
+                        0
+                    </div>
+                    <span class="classification-label cls-benign">
+                        Benign
+                    </span>
+                    <span class="expand-icon">▼</span>
+                </div>
+            </div>
+
+            <div class="ip-card-body">
+                <div class="detail-grid">
+
+                    <!-- Ownership -->
+                    <div class="detail-section">
+                        <h3>🌐 Network Ownership</h3>
+                        <div class="detail-row">
+                            <span class="key">ASN</span>
+                            <span class="val">15169</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="key">Organization</span>
+                            <span class="val">GOGL</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="key">CIDR</span>
+                            <span class="val">8.8.8.0/24</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="key">Country</span>
+                            <span class="val">US</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="key">RIR</span>
+                            <span class="val">arin</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="key">PTR</span>
+                            <span class="val">dns.google</span>
+                        </div>
+                    </div>
+
+                    <!-- VirusTotal -->
+                    <div class="detail-section">
+                        <h3>🔬 VirusTotal</h3>
+                        
+                        <div style="color: var(--text-muted); font-size: 0.82rem; font-style: italic;">
+                            Not available (API key missing or query failed)
+                        </div>
+                        
+                    </div>
+
+                    <!-- AbuseIPDB -->
+                    <div class="detail-section">
+                        <h3>🚨 AbuseIPDB</h3>
+                        
+                        <div style="color: var(--text-muted); font-size: 0.82rem; font-style: italic;">
+                            Not available (API key missing or query failed)
+                        </div>
+                        
+                    </div>
+
+                    <!-- Shodan -->
+                    <div class="detail-section">
+                        <h3>🌐 Shodan</h3>
+                        
+                            <div class="detail-row">
+                                <span class="key">Open Ports</span>
+                                <span class="val">
+                                    
+                                        53, 443
+                                    
+                                </span>
+                            </div>
+                            
+                            
+                            
+                            
+                            <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.5rem">
+                                <span class="key" style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase">Detected Services</span>
+                                
+                                <div style="margin-top: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                        <strong style="color: var(--accent); font-family: var(--mono); font-size: 0.8rem">Port 53/tcp</strong>
+                                        <span style="font-size: 0.8rem; color: var(--text-bright)">DNS </span>
+                                    </div>
+                                    
+                                </div>
+                                
+                                <div style="margin-top: 0.5rem; background: rgba(0,0,0,0.2); padding: 0.5rem; border-radius: 6px;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                        <strong style="color: var(--accent); font-family: var(--mono); font-size: 0.8rem">Port 443/tcp</strong>
+                                        <span style="font-size: 0.8rem; color: var(--text-bright)">HTTPS </span>
+                                    </div>
+                                    
+                                </div>
+                                
+                            </div>
+                            
+                        
+                    </div>
+
+                </div>
+
+                <!-- Scoring Signals -->
+                
+                <div class="detail-section" style="margin-top: 1.25rem;">
+                    <h3>📊 Scoring Signals</h3>
+                    <table class="signals-table">
+                        <thead>
+                            <tr>
+                                <th>Weight</th>
+                                <th>Signal</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td>
+                                    <span class="signal-weight weight-neg">
+                                        -5
+                                    </span>
+                                </td>
+                                <td class="signal-name">Known Cloud Provider</td>
+                                <td class="signal-reason">ASN belongs to known provider: GOOGLE - Google LLC, US</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+                
+
+                <!-- Errors -->
+                
+
+            </div>
+        </div>
+        
+
+    </div>
+
+    <!-- ═══ Footer ═══ -->
+    <footer class="footer">
+        IP Intelligence Report — Generated by <strong>ip-intel v1.0</strong> — 2026-05-05 19:49:16 UTC
+    </footer>
+
+    <script>
+        // Auto-expand cards with score > 50
+        document.querySelectorAll('.ip-card').forEach(card => {
+            const ring = card.querySelector('.score-ring');
+            if (ring) {
+                const score = parseInt(ring.textContent.trim(), 10);
+                if (score > 50) {
+                    card.classList.add('open');
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>
