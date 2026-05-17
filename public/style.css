@@ -705,6 +705,8 @@ body {
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
     padding: 1.25rem;
+    overflow: visible;
+    position: relative;
 }
 
 .detail-section h4 {
@@ -752,9 +754,9 @@ body {
 
 .help-tip-content {
     position: absolute;
-    bottom: calc(100% + 8px);
+    top: calc(100% + 8px);
     left: 50%;
-    transform: translateX(-50%) translateY(4px);
+    transform: translateX(-50%) translateY(-4px);
     width: 260px;
     padding: 0.75rem 1rem;
     background: rgba(10, 15, 30, 0.95);
@@ -771,18 +773,18 @@ body {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s ease, transform 0.25s ease;
-    z-index: 20;
+    z-index: 100;
     white-space: normal;
 }
 
 .help-tip-content::after {
     content: '';
     position: absolute;
-    top: 100%;
+    bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
     border: 6px solid transparent;
-    border-top-color: rgba(59, 130, 246, 0.25);
+    border-bottom-color: rgba(59, 130, 246, 0.25);
 }
 
 .help-tip:hover .help-tip-content,
