@@ -448,47 +448,144 @@ function downloadFile(content, filename, mime) {
     URL.revokeObjectURL(url);
 }
 
-function exportJSON() { downloadFile(JSON.stringify(state.reports, null, 2), 'ip_intel_report.json', 'application/json'); }
-function exportHTML() { downloadFile(document.documentElement.outerHTML, 'ip_intel_report.html', 'text/html'); }
+function exportJSON() {
+    if (!state.reports.length) return;
+    const clean = state.reports.map(r => ({
+        ip: r.ip,
+        risk: { score: r.risk.score, classification: r.risk.classification, signals: r.risk.signals },
+        ownership: r.ownership || {},
+        virustotal: r.virustotal || {},
+        abuseipdb: r.abuseipdb || {},
+        shodan: r.shodan || {},
+        greynoise: r.greynoise || {},
+        alienvault: r.alienvault || {},
+        dns: r.dns || {},
+    }));
+    downloadFile(JSON.stringify(clean, null, 2), `ip_intel_report_${new Date().toISOString().slice(0,10)}.json`, 'application/json');
+}
+
 function exportCSV() {
-    const h = ['IP', 'Score', 'Class', 'ASN', 'Org', 'Country', 'VT_Mal', 'Abuse_Score', 'Ports', 'GreyNoise', 'OTX_Pulses'];
-    const r = state.reports.map(r => [
-        r.ip, r.risk.score, r.risk.classification, r.ownership?.asn||'', r.ownership?.org||'', r.ownership?.country||'',
-        r.virustotal?.malicious||0, r.abuseipdb?.abuse_confidence_score||0, (r.shodan?.open_ports||[]).join(';'),
-        r.greynoise?.classification||'', r.alienvault?.pulse_count||0
-    ]);
-    const csv = [h.join(','), ...r.map(row => row.map(c => `"${c}"`).join(','))].join('\n');
-    downloadFile(csv, 'ip_intel_report.csv', 'text/csv');
+    if (!state.reports.length) return;
+    const headers = ['IP','Risk Score','Classification','ASN','Organization','Country','VT Malicious','VT Suspicious','Abuse Confidence','Abuse Reports','Open Ports','Vulnerabilities','GreyNoise Class','GreyNoise Noise','OTX Pulses','OTX Malware','Signals'];
+    const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = state.reports.map(r => [
+        r.ip,
+        r.risk.score,
+        r.risk.classification,
+        r.ownership?.asn || '',
+        r.ownership?.org || '',
+        r.ownership?.country || '',
+        r.virustotal?.malicious ?? '',
+        r.virustotal?.suspicious ?? '',
+        r.abuseipdb?.abuse_confidence_score ?? '',
+        r.abuseipdb?.total_reports ?? '',
+        (r.shodan?.open_ports || []).join('; '),
+        (r.shodan?.vulns || []).join('; '),
+        r.greynoise?.classification || '',
+        r.greynoise?.seen ? 'Yes' : 'No',
+        r.alienvault?.pulse_count ?? '',
+        r.alienvault?.malware_count ?? '',
+        (r.risk.signals || []).map(s => `[${s.weight>=0?'+':''}${s.weight}] ${s.name}`).join(' | ')
+    ].map(esc).join(','));
+    downloadFile([headers.map(esc).join(','), ...rows].join('\n'), `ip_intel_report_${new Date().toISOString().slice(0,10)}.csv`, 'text/csv;charset=utf-8');
+}
+
+function exportHTML() {
+    if (!state.reports.length) return;
+    const ts = new Date().toLocaleString();
+    let cards = '';
+    state.reports.forEach(r => {
+        const cls = r.risk.classification;
+        const clsColor = cls === 'Malicious' ? '#ef4444' : cls === 'Likely Malicious' ? '#f97316' : cls === 'Suspicious' ? '#eab308' : '#22c55e';
+        const signals = (r.risk.signals || []).map(s =>
+            `<tr><td style="padding:4px 8px;color:${s.weight>=0?'#ef4444':'#22c55e'};font-weight:700;">${s.weight>=0?'+':''}${s.weight}</td><td style="padding:4px 8px;">${s.name}</td><td style="padding:4px 8px;color:#94a3b8;">${s.reason}</td></tr>`
+        ).join('');
+        cards += `
+        <div style="background:#111827;border:1px solid #1f2937;border-radius:12px;padding:20px;margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <span style="font-family:monospace;font-size:1.15rem;font-weight:700;">${r.ip}</span>
+                <span style="background:${clsColor}22;color:${clsColor};padding:4px 12px;border-radius:20px;font-weight:700;font-size:0.85rem;">${r.risk.score} — ${cls}</span>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:0.85rem;margin-bottom:8px;">
+                <tr><td style="color:#6b7280;padding:3px 0;">ASN</td><td>${r.ownership?.asn||'—'}</td><td style="color:#6b7280;">Org</td><td>${r.ownership?.org||'—'}</td><td style="color:#6b7280;">Country</td><td>${r.ownership?.country||'—'}</td></tr>
+                <tr><td style="color:#6b7280;padding:3px 0;">VT Malicious</td><td style="color:${(r.virustotal?.malicious||0)>0?'#ef4444':'inherit'}">${r.virustotal?.malicious??'—'}</td><td style="color:#6b7280;">Abuse Score</td><td style="color:${(r.abuseipdb?.abuse_confidence_score||0)>50?'#ef4444':'inherit'}">${r.abuseipdb?.abuse_confidence_score??'—'}%</td><td style="color:#6b7280;">Ports</td><td>${(r.shodan?.open_ports||[]).join(', ')||'none'}</td></tr>
+                <tr><td style="color:#6b7280;padding:3px 0;">GreyNoise</td><td>${r.greynoise?.classification||'—'}</td><td style="color:#6b7280;">RIOT</td><td>${r.greynoise?.riot?'✅ Yes':'No'}</td><td style="color:#6b7280;">OTX Pulses</td><td style="color:${(r.alienvault?.pulse_count||0)>0?'#eab308':'inherit'}">${r.alienvault?.pulse_count??'—'}</td></tr>
+            </table>
+            ${signals ? `<details style="margin-top:8px;"><summary style="cursor:pointer;color:#60a5fa;font-size:0.8rem;">Risk Signals (${r.risk.signals.length})</summary><table style="width:100%;font-size:0.8rem;margin-top:6px;">${signals}</table></details>` : ''}
+        </div>`;
+    });
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>IP Intelligence Report</title>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#050505;color:#f8fafc;padding:40px;max-width:1000px;margin:0 auto;line-height:1.6;}h1{font-size:1.75rem;margin-bottom:4px;}p.meta{color:#6b7280;font-size:0.85rem;margin-bottom:24px;}table td{vertical-align:top;}</style>
+</head><body>
+<h1>🛡️ IP Intelligence Report</h1>
+<p class="meta">Generated: ${ts} • ${state.reports.length} IP(s) analyzed</p>
+${cards}
+<p style="text-align:center;color:#4b5563;font-size:0.75rem;margin-top:32px;">Powered by IP Intel Engine</p>
+</body></html>`;
+    downloadFile(html, `ip_intel_report_${new Date().toISOString().slice(0,10)}.html`, 'text/html;charset=utf-8');
 }
 
 function exportPDF() {
     if (!state.reports.length) return;
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.setTextColor(30, 30, 30);
+    const pw = doc.internal.pageSize.getWidth();
+
+    // Title
+    doc.setFontSize(20); doc.setTextColor(30, 30, 30);
     doc.text('IP Intelligence Report', 14, 22);
-    doc.setFontSize(9);
-    doc.setTextColor(120);
-    doc.text(`Generated: ${new Date().toISOString()}  |  Total: ${state.reports.length} IP(s)`, 14, 30);
+    doc.setFontSize(9); doc.setTextColor(120);
+    doc.text(`Generated: ${new Date().toLocaleString()}  |  Total: ${state.reports.length} IP(s)`, 14, 30);
+    doc.setDrawColor(200); doc.line(14, 33, pw - 14, 33);
+
     let y = 40;
     state.reports.forEach((r, i) => {
-        if (y > 260) { doc.addPage(); y = 20; }
-        doc.setFontSize(11); doc.setTextColor(0);
-        doc.text(`${i+1}. ${r.ip}  —  Score: ${r.risk.score} (${r.risk.classification})`, 14, y); y += 6;
-        doc.setFontSize(8); doc.setTextColor(80);
-        doc.text(`ASN: ${r.ownership?.asn||'-'}  |  Org: ${r.ownership?.org||'-'}  |  Country: ${r.ownership?.country||'-'}`, 18, y); y += 5;
-        doc.text(`VT Malicious: ${r.virustotal?.malicious||0}  |  Abuse Score: ${r.abuseipdb?.abuse_confidence_score||0}%  |  Ports: ${(r.shodan?.open_ports||[]).join(',')||'none'}`, 18, y); y += 5;
-        doc.text(`GreyNoise: ${r.greynoise?.classification||'-'}  |  OTX Pulses: ${r.alienvault?.pulse_count||0}`, 18, y); y += 4;
+        // Check page break
+        if (y > 250) { doc.addPage(); y = 20; }
+
+        // IP header with colored score
+        doc.setFontSize(12); doc.setTextColor(0);
+        doc.text(`${r.ip}`, 14, y);
+        const cls = r.risk.classification;
+        if (cls === 'Malicious') doc.setTextColor(220, 38, 38);
+        else if (cls === 'Likely Malicious') doc.setTextColor(234, 88, 12);
+        else if (cls === 'Suspicious') doc.setTextColor(202, 138, 4);
+        else doc.setTextColor(22, 163, 74);
+        doc.text(`Score: ${r.risk.score}  (${cls})`, pw - 14, y, { align: 'right' });
+        y += 2;
+        doc.setDrawColor(230); doc.line(14, y, pw - 14, y); y += 5;
+
+        // Details grid
+        doc.setFontSize(8); doc.setTextColor(100);
+        const details = [
+            [`ASN: ${r.ownership?.asn||'-'}`, `Org: ${r.ownership?.org||'-'}`, `Country: ${r.ownership?.country||'-'}`],
+            [`VT Malicious: ${r.virustotal?.malicious??'-'}`, `Abuse Score: ${r.abuseipdb?.abuse_confidence_score??'-'}%`, `Ports: ${(r.shodan?.open_ports||[]).join(',')||'none'}`],
+            [`GreyNoise: ${r.greynoise?.classification||'-'}`, `RIOT: ${r.greynoise?.riot?'Yes':'No'}`, `OTX Pulses: ${r.alienvault?.pulse_count??'-'}`],
+        ];
+        details.forEach(row => {
+            if (y > 275) { doc.addPage(); y = 20; }
+            doc.text(row.join('   |   '), 18, y); y += 4;
+        });
+
+        // Signals
         if (r.risk.signals && r.risk.signals.length) {
+            y += 1;
+            doc.setFontSize(7); doc.setTextColor(130);
+            doc.text('Risk Signals:', 18, y); y += 3.5;
             r.risk.signals.forEach(s => {
-                if (y > 270) { doc.addPage(); y = 20; }
-                doc.text(`  [${s.weight>=0?'+':''}${s.weight}] ${s.name}: ${s.reason}`, 20, y); y += 4;
+                if (y > 275) { doc.addPage(); y = 20; }
+                const prefix = s.weight >= 0 ? '+' : '';
+                doc.setTextColor(s.weight >= 0 ? 200 : 34, s.weight >= 0 ? 60 : 150, s.weight >= 0 ? 60 : 100);
+                doc.text(`[${prefix}${s.weight}]`, 20, y);
+                doc.setTextColor(80);
+                doc.text(`${s.name}: ${s.reason}`, 34, y);
+                y += 3.5;
             });
         }
-        y += 4;
+        y += 6;
     });
-    doc.save('ip_intel_report.pdf');
+
+    doc.save(`ip_intel_report_${new Date().toISOString().slice(0,10)}.pdf`);
 }
 
 // ── Threat Map (Leaflet.js) ─────────────────────────────────────────────
