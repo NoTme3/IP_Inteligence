@@ -50,6 +50,8 @@ body {
     line-height: 1.6;
     min-height: 100vh;
     overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ── Animated Background ──────────────────────────────────────────────────── */
@@ -911,7 +913,7 @@ body {
 .footer {
     padding: 1.5rem;
     border-top: 1px solid var(--glass-border);
-    margin-top: 2rem;
+    margin-top: auto;
     background: transparent;
 }
 
