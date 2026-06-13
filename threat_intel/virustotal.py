@@ -6,9 +6,10 @@ import asyncio
 import httpx
 
 from config import settings
-from models import VirusTotalResult
+from models import PassiveDNSEntry, VirusTotalResult
 from utils.http_client import rate_limited_get, vt_limiter
 from utils.logger import get_logger
+from utils.rate_tracker import get_tracker
 
 log = get_logger("virustotal")
 
@@ -55,8 +56,8 @@ async def query_virustotal(
         # Using asyncio.gather to run them concurrently against VT
         resolutions_url = f"{_BASE_URL}/{ip}/resolutions?limit=20"
         
-        main_task = rate_limited_get(client, url, vt_limiter, headers=headers)
-        resolutions_task = rate_limited_get(client, resolutions_url, vt_limiter, headers=headers)
+        main_task = rate_limited_get(client, url, vt_limiter, headers=headers, tracker=get_tracker("virustotal"))
+        resolutions_task = rate_limited_get(client, resolutions_url, vt_limiter, headers=headers, tracker=get_tracker("virustotal"))
         
         responses = await asyncio.gather(main_task, resolutions_task, return_exceptions=True)
         
@@ -70,14 +71,32 @@ async def query_virustotal(
         attrs = data.get("data", {}).get("attributes", {})
         stats = attrs.get("last_analysis_stats", {})
 
-        # Extract historic domains if resolution query succeeded
+        # Extract historic domains and passive DNS with timestamps
         historic_domains = []
+        passive_dns: list[PassiveDNSEntry] = []
         if not isinstance(responses[1], Exception) and responses[1].status_code == 200:
             res_data = responses[1].json().get("data", [])
             for item in res_data:
-                host = item.get("attributes", {}).get("host_name")
+                attrs_r = item.get("attributes", {})
+                host = attrs_r.get("host_name")
+                date = attrs_r.get("date")
                 if host and host not in historic_domains:
                     historic_domains.append(host)
+                    # Convert epoch to ISO date if available
+                    date_str = None
+                    if date:
+                        try:
+                            from datetime import datetime, timezone
+                            date_str = datetime.fromtimestamp(int(date), tz=timezone.utc).strftime("%Y-%m-%d")
+                        except (ValueError, TypeError, OSError):
+                            pass
+                    passive_dns.append(PassiveDNSEntry(
+                        hostname=host,
+                        resolved_date=date_str,
+                    ))
+
+        # Sort passive DNS by date descending (most recent first)
+        passive_dns.sort(key=lambda e: e.resolved_date or "", reverse=True)
 
         result = VirusTotalResult(
             malicious=stats.get("malicious", 0),
@@ -86,6 +105,7 @@ async def query_virustotal(
             undetected=stats.get("undetected", 0),
             reputation=attrs.get("reputation", 0),
             historic_domains=historic_domains,
+            passive_dns=passive_dns,
             as_owner=attrs.get("as_owner"),
             country=attrs.get("country"),
             available=True,

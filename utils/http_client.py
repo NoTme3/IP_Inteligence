@@ -10,6 +10,7 @@ from aiolimiter import AsyncLimiter
 
 from config import settings
 from utils.logger import get_logger
+from utils.rate_tracker import RateLimitTracker
 
 log = get_logger("http")
 
@@ -24,6 +25,12 @@ abuseipdb_limiter = AsyncLimiter(settings.abuseipdb_rpm, 60)
 
 # Shodan: ~1 req/sec for paid plans
 shodan_limiter = AsyncLimiter(settings.shodan_rpm, 60)
+
+# GreyNoise: ~30 req/min
+greynoise_limiter = AsyncLimiter(30, 60)
+
+# AlienVault: ~30 req/min
+alienvault_limiter = AsyncLimiter(30, 60)
 
 
 # ── Client factory ────────────────────────────────────────────────────────────
@@ -49,17 +56,37 @@ async def rate_limited_get(
     headers: Optional[dict] = None,
     params: Optional[dict] = None,
     max_retries: int = 3,
+    tracker: Optional[RateLimitTracker] = None,
 ) -> httpx.Response:
     """Perform a GET request respecting the given rate limiter.
 
     On HTTP 429 (Too Many Requests), retries with exponential back-off.
+    If a ``RateLimitTracker`` is provided, it will be consulted before
+    making requests and updated from response headers.
     """
+    # Check budget guard before attempting
+    if tracker:
+        wait = await tracker.wait_if_needed()
+        if wait > 0:
+            log.info("Budget guard waited %.1fs for %s", wait, tracker.provider)
+
     for attempt in range(1, max_retries + 1):
         async with limiter:
             try:
                 response = await client.get(url, headers=headers, params=params)
 
+                # Update tracker from response headers
+                if tracker:
+                    tracker.update_from_headers(dict(response.headers))
+                    tracker.consume()
+
                 if response.status_code == 429:
+                    if tracker:
+                        tracker.update_from_429(dict(response.headers))
+                        wait = await tracker.wait_if_needed()
+                        if wait > 0:
+                            continue
+                    # Fallback exponential backoff
                     wait = 2 ** attempt
                     log.warning(
                         "Rate-limited on %s (attempt %d/%d) — retrying in %ds",

@@ -14,7 +14,9 @@ from __future__ import annotations
 import httpx
 
 from models import GreyNoiseResult
+from utils.http_client import rate_limited_get, greynoise_limiter
 from utils.logger import get_logger
+from utils.rate_tracker import get_tracker
 
 log = get_logger("greynoise")
 
@@ -75,7 +77,10 @@ async def _query_community(
     headers = {"accept": "application/json"}
 
     log.debug("Querying GreyNoise Community for %s", ip)
-    resp = await client.get(url, headers=headers)
+    resp = await rate_limited_get(
+        client, url, greynoise_limiter, headers=headers,
+        tracker=get_tracker("greynoise"),
+    )
 
     if resp.status_code == 404:
         # IP not found in GreyNoise database — that's okay
@@ -119,7 +124,10 @@ async def _query_full(
     }
 
     log.debug("Querying GreyNoise Full API for %s", ip)
-    resp = await client.get(url, headers=headers)
+    resp = await rate_limited_get(
+        client, url, greynoise_limiter, headers=headers,
+        tracker=get_tracker("greynoise"),
+    )
 
     if resp.status_code == 404:
         log.debug("GreyNoise: %s not found in database", ip)

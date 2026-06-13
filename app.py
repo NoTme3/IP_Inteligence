@@ -27,6 +27,7 @@ from collections import defaultdict
 from core.pipeline import enrich_single_web
 from models import IPIntelligenceReport
 from utils.http_client import create_client
+from utils.rate_tracker import trackers as rate_trackers
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
@@ -123,6 +124,17 @@ def _validate_ip(ip: str) -> Optional[str]:
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "max_ips": MAX_IPS_PER_REQUEST}
+
+
+@app.get("/api/rate-status")
+async def rate_status():
+    """Return current rate-limit budget status for all providers."""
+    return {
+        "providers": {
+            name: tracker.get_status()
+            for name, tracker in rate_trackers.items()
+        }
+    }
 
 
 @app.post("/api/analyze")
@@ -234,8 +246,27 @@ async def analyze_stream(req: AnalyzeRequest):
             completed = 0
             for coro in asyncio.as_completed(tasks.keys()):
                 try:
+                    # Snapshot tracker state before enrichment
+                    pre_waits = {
+                        name: t.last_wait_seconds
+                        for name, t in rate_trackers.items()
+                    }
+
                     report = await coro
                     completed += 1
+
+                    # Check if any tracker had to wait (budget guard fired)
+                    for name, t in rate_trackers.items():
+                        if t.last_wait_seconds > 0 and t.last_wait_seconds != pre_waits.get(name, 0):
+                            yield {
+                                "event": "rate_limit",
+                                "data": json.dumps({
+                                    "provider": t.provider,
+                                    "wait_seconds": round(t.last_wait_seconds, 1),
+                                    "message": f"{t.provider} rate limit reached. Waited {t.last_wait_seconds:.0f}s for budget reset.",
+                                }),
+                            }
+
                     yield {
                         "event": "result",
                         "data": json.dumps({

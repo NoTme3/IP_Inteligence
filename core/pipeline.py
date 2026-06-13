@@ -32,6 +32,62 @@ from utils.logger import get_logger
 
 log = get_logger("pipeline")
 
+# ── Known threat campaign keywords for tag extraction ─────────────────────────
+
+_MALWARE_KEYWORDS = {
+    "cobalt strike", "cobaltstrike", "emotet", "trickbot", "mirai", "conti",
+    "lockbit", "ryuk", "ransomware", "trojan", "botnet", "apt28", "apt29",
+    "lazarus", "turla", "sandworm", "fancy bear", "cozy bear", "wizard spider",
+    "ragnar", "blackcat", "alphv", "qakbot", "icedid", "dridex", "magecart",
+    "formbook", "agent tesla", "remcos", "njrat", "asyncrat", "redline",
+    "raccoon", "vidar", "lumma", "darkgate", "pikabot",
+}
+
+
+def _extract_campaign_tags(report) -> list[str]:
+    """Extract normalized campaign/threat tags from all intelligence feeds."""
+    tags: set[str] = set()
+
+    gn = report.greynoise
+    otx = report.alienvault
+    shodan = report.shodan
+
+    # GreyNoise tags (e.g., "Mirai", "SSH Bruteforcer")
+    if gn.available:
+        for tag in gn.tags:
+            tags.add(tag.strip().lower())
+        for cve in gn.cve:
+            tags.add(cve.strip().upper())  # CVEs stay uppercase
+        if gn.name and gn.classification == "malicious":
+            tags.add(gn.name.strip().lower())
+
+    # Shodan tags (e.g., "compromised", "honeypot")
+    if shodan.available:
+        for tag in shodan.tags:
+            tags.add(tag.strip().lower())
+
+    # AlienVault OTX
+    if otx.available:
+        if otx.adversary:
+            tags.add(otx.adversary.strip().lower())
+        # Extract keywords from curated pulse names
+        for pulse in otx.pulses:
+            if pulse.is_auto_generated or pulse.confidence <= 0:
+                continue
+            name_lower = pulse.pulse_name.lower()
+            for keyword in _MALWARE_KEYWORDS:
+                if keyword in name_lower:
+                    tags.add(keyword)
+
+    # Shodan CVEs
+    if shodan.available:
+        for vuln in shodan.vulns[:10]:  # Limit to top 10
+            tags.add(vuln.strip().upper())
+
+    # Clean and sort
+    cleaned = sorted(t for t in tags if len(t) >= 2)
+    return cleaned[:20]  # Cap at 20 tags
+
 
 async def _enrich_single(
     ip_input: IPInput,
@@ -92,6 +148,7 @@ async def _enrich_single(
 
         # Compute risk score
         report.risk = compute_risk_score(report)
+        report.campaign_tags = _extract_campaign_tags(report)
         report.query_duration_s = round(time.monotonic() - start, 2)
 
         return report
@@ -315,6 +372,7 @@ async def enrich_single_web(
         report.errors.append(f"AlienVault: {results[6]}")
 
     report.risk = compute_risk_score(report)
+    report.campaign_tags = _extract_campaign_tags(report)
     report.query_duration_s = round(time.monotonic() - start, 2)
 
     return report

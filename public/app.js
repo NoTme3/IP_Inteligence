@@ -7,6 +7,7 @@
 const state = {
     reports: [],
     analyzing: false,
+    activeTagFilter: null,
 };
 
 // ── DOM Elements ─────────────────────────────────────────────────────────────
@@ -35,6 +36,21 @@ const els = {
     keyShodan: $('#key-shodan'),
     keyGreynoise: $('#key-greynoise'),
     keyAlienvault: $('#key-alienvault'),
+    // Phase 3 additions
+    historyDrawer: $('#history-drawer'),
+    drawerOverlay: $('#drawer-overlay'),
+    btnHistory: $('#btn-history'),
+    btnCloseHistory: $('#btn-close-history'),
+    historySearch: $('#history-search'),
+    historyList: $('#history-list'),
+    campaignBar: $('#campaign-bar'),
+    campaignTagsList: $('#campaign-tags-list'),
+    reportSearch: $('#report-search'),
+    filterClassification: $('#filter-classification'),
+    filterStatusChip: $('#filter-status-chip'),
+    filterChipText: $('#filter-chip-text'),
+    btnClearFilter: $('#btn-clear-filter'),
+    rateLimitToasts: $('#rate-limit-toasts'),
 };
 
 // ── Number Counter Animation ─────────────────────────────────────────────────
@@ -327,11 +343,16 @@ function renderCard(report, index) {
             <div class="ip-card-left">
                 <span class="ip-card-ip">${escHtml(r.ip)}</span>
                 <div class="ip-card-tags">
-                    ${own.country ? `<span class="tag tag-country">${escHtml(own.country)}</span>` : ''}
+                    ${own.country && own.country.toLowerCase() !== 'unknown' ? `<span class="tag tag-country">${escHtml(own.country)}</span>` : ''}
                     ${own.asn ? `<span class="tag tag-asn">AS${escHtml(own.asn)}</span>` : ''}
-                    ${own.org ? `<span class="tag tag-org">${escHtml(own.org)}</span>` : ''}
-                    <span class="tag" style="background:rgba(139,92,246,0.15);color:#a78bfa;">${infraLabel(infraType)}</span>
+                    ${own.org && own.org.toLowerCase() !== 'unknown' ? `<span class="tag tag-org">${escHtml(own.org)}</span>` : ''}
+                    ${infraType && infraType !== 'unknown' ? `<span class="tag tag-infra">${infraLabel(infraType)}</span>` : ''}
                 </div>
+                ${r.campaign_tags && r.campaign_tags.length > 0 ? `
+                    <div class="ip-header-tags">
+                        ${r.campaign_tags.slice(0, 8).map(tag => `<span class="tag-badge" onclick="event.stopPropagation(); filterByTag('${escHtml(tag)}')" title="Filter by ${escHtml(tag)}">${escHtml(tag)}</span>`).join('')}
+                    </div>
+                ` : ''}
             </div>
             <div class="ip-card-right">
                 <div class="score-badge">
@@ -361,6 +382,9 @@ function renderCard(report, index) {
                     <div class="detail-row"><span class="key">Country</span><span class="val">${escHtml(own.country || '—')}</span></div>
                     <div class="detail-row"><span class="key">Registry</span><span class="val">${escHtml(own.rir || '—')}</span></div>
                     <div class="detail-row"><span class="key">PTR Record</span><span class="val">${escHtml(dns.ptr || '—')}</span></div>
+                    <div class="geo-inject" style="border-top:1px dashed rgba(255,255,255,0.06);margin-top:0.6rem;padding-top:0.6rem;">
+                        <div class="detail-row" style="opacity:0.4;"><span class="key">Coordinates</span><span class="val" style="font-style:italic;">Loading…</span></div>
+                    </div>
                 </div>
 
                 <div class="detail-section">
@@ -373,6 +397,20 @@ function renderCard(report, index) {
                         <div class="detail-row"><span class="key">AS Owner</span><span class="val">${escHtml(vt.as_owner || '—')}</span></div>
                         ${domainsList ? `<div style="margin-top:0.8rem;"><div class="key" style="margin-bottom:0.2rem;">Historic Resolutions</div><div class="domain-list">${domainsList}</div></div>` : ''}
                     ` : `<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">Telemetry unavailable (No API Key)</div>`}
+                </div>
+
+                <div class="detail-section">
+                    <h4>Passive DNS Timeline ${helpTip('Chronological history of domain resolutions to this IP address (from VirusTotal). Helps identify C2 domains or domain reuse.')}</h4>
+                    ${vt.available && vt.passive_dns && vt.passive_dns.length > 0 ? `
+                        <div class="pdns-timeline">
+                            ${vt.passive_dns.slice(0, 15).map((entry, idx) => `
+                                <div class="pdns-entry ${idx < 3 ? 'recent' : ''}">
+                                    <span class="pdns-date">${escHtml(entry.resolved_date || 'Unknown Date')}</span>
+                                    <span class="pdns-domain">${escHtml(entry.hostname)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">No passive DNS timeline data available</div>`}
                 </div>
 
                 <div class="detail-section">
@@ -453,18 +491,271 @@ window.toggleCard = function(headerEl) {
     card.classList.toggle('expanded');
 };
 
+// ── Filtering, Campaigns, and History (Phase 3) ──────────────────────────────
+
+// Global helper to filter the current reports set
+function getFilteredReports() {
+    let list = state.reports;
+
+    // 1. Filter by campaign tag pill
+    if (state.activeTagFilter) {
+        const tagLower = state.activeTagFilter.toLowerCase();
+        list = list.filter(r => (r.campaign_tags || []).some(t => t.toLowerCase() === tagLower));
+    }
+
+    // 2. Filter by classification dropdown
+    const classVal = els.filterClassification.value;
+    if (classVal !== 'all') {
+        list = list.filter(r => r.risk.classification.toLowerCase() === classVal.toLowerCase());
+    }
+
+    // 3. Filter by search query
+    const searchVal = els.reportSearch.value.trim().toLowerCase();
+    if (searchVal) {
+        list = list.filter(r => {
+            const ip = r.ip.toLowerCase();
+            const org = (r.ownership?.org || '').toLowerCase();
+            const asn = String(r.ownership?.asn || '').toLowerCase();
+            const country = (r.ownership?.country || '').toLowerCase();
+            const registry = (r.ownership?.rir || '').toLowerCase();
+            return ip.includes(searchVal) || org.includes(searchVal) || asn.includes(searchVal) || country.includes(searchVal) || registry.includes(searchVal);
+        });
+    }
+
+    return list;
+}
+
+// Re-render only matching report cards and update stats count
+function applyFilters() {
+    const filtered = getFilteredReports();
+    els.resultsContainer.innerHTML = '';
+
+    if (filtered.length === 0) {
+        els.resultsContainer.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <h3>No Matching Reports</h3>
+                <p>Try refining your search text or removing the selected filters.</p>
+            </div>
+        `;
+    } else {
+        filtered.forEach((r, i) => {
+            els.resultsContainer.appendChild(renderCard(r, i));
+        });
+    }
+
+    // Update stats cards to match filtered subset
+    updateCounterEl('#stat-total', filtered.length);
+    updateCounterEl('#stat-benign', filtered.filter(r => r.risk.classification === 'Benign').length);
+    updateCounterEl('#stat-suspicious', filtered.filter(r => r.risk.classification === 'Suspicious').length);
+    updateCounterEl('#stat-likely-mal', filtered.filter(r => r.risk.classification === 'Likely Malicious').length);
+    updateCounterEl('#stat-malicious', filtered.filter(r => r.risk.classification === 'Malicious').length);
+}
+
+// Aggregate and display campaign tags from reports
+function updateCampaignBar() {
+    const counts = {};
+    state.reports.forEach(r => {
+        (r.campaign_tags || []).forEach(t => {
+            counts[t] = (counts[t] || 0) + 1;
+        });
+    });
+
+    const tags = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+    if (tags.length === 0) {
+        els.campaignBar.style.display = 'none';
+        return;
+    }
+
+    els.campaignBar.style.display = 'flex';
+    els.campaignTagsList.innerHTML = tags.map(tag => {
+        const activeClass = state.activeTagFilter === tag ? 'active' : '';
+        return `<span class="campaign-tag ${activeClass}" onclick="filterByTag('${escHtml(tag)}')">${escHtml(tag)} <span style="opacity:0.6;font-size:0.7rem;">(${counts[tag]})</span></span>`;
+    }).join('');
+}
+
+// Set active tag filter
+window.filterByTag = function(tag) {
+    if (state.activeTagFilter === tag) {
+        // Toggle off if clicked again
+        clearActiveFilter();
+        return;
+    }
+    state.activeTagFilter = tag;
+    els.filterChipText.textContent = `Tag: ${tag}`;
+    els.filterStatusChip.style.display = 'flex';
+    updateCampaignBar();
+    applyFilters();
+};
+
+// Clear active tag filter
+window.clearActiveFilter = function() {
+    state.activeTagFilter = null;
+    els.filterStatusChip.style.display = 'none';
+    updateCampaignBar();
+    applyFilters();
+};
+
+// Rate Limit countdown toast manager
+const activeToasts = {};
+
+function showRateLimitToast(provider, waitSeconds) {
+    const key = provider.toLowerCase().replace(/\s+/g, '');
+    let toast = activeToasts[key];
+
+    if (toast) {
+        toast.waitSeconds = Math.max(toast.waitSeconds, waitSeconds);
+        const countdownEl = toast.el.querySelector('.rate-toast-countdown');
+        if (countdownEl) countdownEl.textContent = `${Math.ceil(toast.waitSeconds)}s`;
+        return;
+    }
+
+    // Create new toast element
+    const toastEl = document.createElement('div');
+    toastEl.className = 'rate-limit-toast';
+    toastEl.innerHTML = `
+        <span class="rate-toast-icon">⏳</span>
+        <div class="rate-toast-content">
+            <div class="rate-toast-title">Rate Limit Active</div>
+            <div class="rate-toast-msg">Queued request for ${escHtml(provider)}</div>
+        </div>
+        <div class="rate-toast-countdown">${Math.ceil(waitSeconds)}s</div>
+    `;
+
+    els.rateLimitToasts.appendChild(toastEl);
+
+    toast = {
+        el: toastEl,
+        waitSeconds: waitSeconds,
+        interval: setInterval(() => {
+            toast.waitSeconds -= 1;
+            if (toast.waitSeconds <= 0) {
+                clearInterval(toast.interval);
+                toastEl.classList.add('fade-out');
+                setTimeout(() => {
+                    toastEl.remove();
+                    delete activeToasts[key];
+                }, 400);
+            } else {
+                const countEl = toastEl.querySelector('.rate-toast-countdown');
+                if (countEl) countEl.textContent = `${Math.ceil(toast.waitSeconds)}s`;
+            }
+        }, 1000)
+    };
+
+    activeToasts[key] = toast;
+}
+
+// ── Scan History Log ─────────────────────────────────────────────────────────
+
+function getHistory() {
+    try {
+        return JSON.parse(localStorage.getItem('ip_intel_history') || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveToHistory(newReports) {
+    if (!newReports || newReports.length === 0) return;
+    let history = getHistory();
+
+    newReports.forEach(r => {
+        // Remove existing cached scan for the same IP
+        history = history.filter(item => item.ip !== r.ip);
+        // Prepend new scan record
+        history.unshift({
+            ip: r.ip,
+            classification: r.risk.classification,
+            score: r.risk.score,
+            asn: r.ownership?.asn || '',
+            org: r.ownership?.org || '',
+            country: r.ownership?.country || '',
+            timestamp: new Date().toISOString(),
+            report: r
+        });
+    });
+
+    // Cap at 100 records
+    if (history.length > 100) {
+        history = history.slice(0, 100);
+    }
+
+    localStorage.setItem('ip_intel_history', JSON.stringify(history));
+    renderHistoryList();
+}
+
+function renderHistoryList() {
+    const history = getHistory();
+    const searchVal = els.historySearch.value.trim().toLowerCase();
+
+    const filtered = history.filter(item => {
+        return item.ip.toLowerCase().includes(searchVal) ||
+               (item.org || '').toLowerCase().includes(searchVal) ||
+               (item.country || '').toLowerCase().includes(searchVal);
+    });
+
+    if (filtered.length === 0) {
+        els.historyList.innerHTML = `<div class="empty-history">No matching scans found.</div>`;
+        return;
+    }
+
+    els.historyList.innerHTML = filtered.map(item => {
+        const cls = classLabel(item.classification);
+        const date = new Date(item.timestamp).toLocaleDateString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+        return `
+            <div class="history-item" onclick="loadHistoryItem('${escHtml(item.ip)}')">
+                <div class="history-item-header">
+                    <span class="history-item-ip">${escHtml(item.ip)}</span>
+                    <span class="history-item-score ${cls}">${item.score}</span>
+                </div>
+                <div class="history-item-meta">
+                    <span>${escHtml(item.org || 'Unknown Org')} (${escHtml(item.country || '??')})</span>
+                    <span>${date}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+window.loadHistoryItem = function(ip) {
+    const history = getHistory();
+    const match = history.find(item => item.ip === ip);
+    if (!match) return;
+
+    // Load matching report into current active state
+    state.reports = [match.report];
+    state.activeTagFilter = null;
+    els.filterStatusChip.style.display = 'none';
+
+    // Populate IP input box and update layout
+    els.ipInput.value = ip;
+    handleIPInputChange();
+
+    // Hide drawer
+    els.historyDrawer.classList.remove('open');
+    els.drawerOverlay.classList.remove('open');
+
+    // Render & display
+    els.emptyState.style.display = 'none';
+    applyFilters();
+    updateCampaignBar();
+    clearMap();
+    plotIPOnMap(match.report);
+
+    els.summaryBar.classList.add('visible');
+    els.controlsHeader.classList.add('visible');
+};
+
 // ── Summary Update ───────────────────────────────────────────────────────────
 function updateSummary() {
-    const reports = state.reports;
-    const total = reports.length;
-    
-    updateCounterEl('#stat-total', total);
-    updateCounterEl('#stat-benign', reports.filter(r => r.risk.classification === 'Benign').length);
-    updateCounterEl('#stat-suspicious', reports.filter(r => r.risk.classification === 'Suspicious').length);
-    updateCounterEl('#stat-likely-mal', reports.filter(r => r.risk.classification === 'Likely Malicious').length);
-    updateCounterEl('#stat-malicious', reports.filter(r => r.risk.classification === 'Malicious').length);
+    // Basic wrapper to call the filter-aware counters
+    applyFilters();
 
-    if (total > 0) {
+    if (state.reports.length > 0) {
         els.summaryBar.classList.add('visible');
         els.controlsHeader.classList.add('visible');
     }
@@ -477,6 +768,8 @@ async function analyze() {
     if (ips.length > 100) { alert(`Max 100 IPs allowed on web. Sent ${ips.length}.`); return; }
 
     state.reports = [];
+    state.activeTagFilter = null;
+    els.filterStatusChip.style.display = 'none';
     state.analyzing = true;
     
     els.btnAnalyze.classList.add('loading');
@@ -487,6 +780,7 @@ async function analyze() {
     
     els.summaryBar.classList.remove('visible');
     els.controlsHeader.classList.remove('visible');
+    els.campaignBar.style.display = 'none';
     
     els.progressContainer.classList.add('active');
     els.progressFill.style.width = '0%';
@@ -545,8 +839,16 @@ async function analyze() {
                             const pct = (payload.progress / payload.total * 100).toFixed(0);
                             els.progressFill.style.width = pct + '%';
                             els.progressText.textContent = `Streaming data: ${payload.progress} / ${payload.total} complete`;
+                            
+                            // Re-calculate campaigns and summary dynamically
+                            updateCampaignBar();
                             updateSummary();
                         } catch (e) { console.error('Parse err:', e); }
+                    } else if (eventType === 'rate_limit') {
+                        try {
+                            const payload = JSON.parse(eventData);
+                            showRateLimitToast(payload.provider, payload.wait_seconds);
+                        } catch (e) { console.error('Rate limit parse err:', e); }
                     } else if (eventType === 'error') {
                         try {
                             const payload = JSON.parse(eventData);
@@ -571,10 +873,12 @@ async function analyze() {
         els.btnAnalyze.disabled = false;
         setTimeout(() => els.progressContainer.classList.remove('active'), 2500);
 
+        // Save active scans to local history cache
+        saveToHistory(state.reports);
+
         // Final Sort & Render Stagger
         state.reports.sort((a, b) => b.risk.score - a.risk.score);
-        els.resultsContainer.innerHTML = '';
-        state.reports.forEach((r, i) => els.resultsContainer.appendChild(renderCard(r, i)));
+        updateCampaignBar();
         updateSummary();
 
         if (state.reports.length === 0) {
@@ -734,34 +1038,177 @@ function exportPDF() {
     doc.save(`ip_intel_report_${new Date().toISOString().slice(0,10)}.pdf`);
 }
 
-// ── Threat Map (Leaflet.js) ─────────────────────────────────────────────
+// ── Threat Map (Leaflet.js) — Enhanced ───────────────────────────────────
 let threatMap = null;
 let mapMarkers = [];
+let mapCountries = new Set();
 
 function initMap() {
     if (threatMap) return;
-    threatMap = L.map('threat-map', { zoomControl: true, attributionControl: false }).setView([20, 0], 2);
+    threatMap = L.map('threat-map', {
+        zoomControl: true,
+        attributionControl: false,
+        zoomSnap: 0.5,
+    }).setView([20, 0], 2);
+
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 18,
     }).addTo(threatMap);
 }
 
+function getMarkerColor(cls) {
+    if (cls === 'Malicious') return '#ef4444';
+    if (cls === 'Likely Malicious') return '#f97316';
+    if (cls === 'Suspicious') return '#eab308';
+    return '#22c55e';
+}
+
+function getScoreBg(cls) {
+    if (cls === 'Malicious') return 'background:rgba(239,68,68,0.2); color:#f87171;';
+    if (cls === 'Likely Malicious') return 'background:rgba(249,115,22,0.2); color:#fb923c;';
+    if (cls === 'Suspicious') return 'background:rgba(234,179,8,0.2); color:#fbbf24;';
+    return 'background:rgba(34,197,94,0.2); color:#34d399;';
+}
+
+function createPulsingIcon(color, isMalicious) {
+    const size = isMalicious ? 16 : 12;
+    const pulse = isMalicious ? `
+        <circle cx="${size}" cy="${size}" r="${size - 2}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.6">
+            <animate attributeName="r" from="${size - 2}" to="${size * 2}" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" from="0.6" to="0" dur="2s" repeatCount="indefinite"/>
+        </circle>` : '';
+
+    const svg = `
+        <svg width="${size * 2}" height="${size * 2}" viewBox="0 0 ${size * 2} ${size * 2}" xmlns="http://www.w3.org/2000/svg">
+            ${pulse}
+            <circle cx="${size}" cy="${size}" r="${isMalicious ? 7 : 5}" fill="${color}" stroke="#fff" stroke-width="1.5" opacity="0.9"/>
+            <circle cx="${size}" cy="${size}" r="${isMalicious ? 3 : 2}" fill="#fff" opacity="0.6"/>
+        </svg>`;
+
+    return L.divIcon({
+        html: svg,
+        className: '',
+        iconSize: [size * 2, size * 2],
+        iconAnchor: [size, size],
+        popupAnchor: [0, -size],
+    });
+}
+
+function buildPopupContent(report, geoData) {
+    const cls = report.risk.classification;
+    const score = report.risk.score;
+    const own = report.ownership || {};
+    const shodan = report.shodan || {};
+    const ports = (shodan.open_ports || []).slice(0, 6);
+    const vulns = (shodan.vulns || []).slice(0, 4);
+    const tags = (report.campaign_tags || []).slice(0, 5);
+
+    let tagsHtml = '';
+    if (ports.length || vulns.length || tags.length) {
+        const portPills = ports.map(p => `<span class="map-popup-tag port">${p}</span>`).join('');
+        const vulnPills = vulns.map(v => `<span class="map-popup-tag vuln">${escHtml(v)}</span>`).join('');
+        const tagPills = tags.map(t => `<span class="map-popup-tag campaign">${escHtml(t)}</span>`).join('');
+        tagsHtml = `<div class="map-popup-tags">${portPills}${vulnPills}${tagPills}</div>`;
+    }
+
+    return `
+        <div class="map-popup">
+            <div class="map-popup-header">
+                <span class="map-popup-ip">${escHtml(report.ip)}</span>
+            </div>
+            <div class="map-popup-body">
+                <div class="map-popup-row">
+                    <span class="map-popup-key">Location</span>
+                    <span class="map-popup-val">${escHtml(geoData.city || '—')}, ${escHtml(geoData.region || '')} ${escHtml(geoData.country_name || '')}</span>
+                </div>
+                <div class="map-popup-row">
+                    <span class="map-popup-key">Coordinates</span>
+                    <span class="map-popup-val">${geoData.latitude.toFixed(4)}, ${geoData.longitude.toFixed(4)}</span>
+                </div>
+                <div class="map-popup-row">
+                    <span class="map-popup-key">ASN / Org</span>
+                    <span class="map-popup-val">${escHtml(own.asn ? `AS${own.asn}` : '—')} — ${escHtml(own.org || '—')}</span>
+                </div>
+                <div class="map-popup-row">
+                    <span class="map-popup-key">Network</span>
+                    <span class="map-popup-val">${escHtml(own.cidr || geoData.network || '—')}</span>
+                </div>
+                <div class="map-popup-row">
+                    <span class="map-popup-key">ISP</span>
+                    <span class="map-popup-val">${escHtml(geoData.org || '—')}</span>
+                </div>
+                <div class="map-popup-row">
+                    <span class="map-popup-key">Open Ports</span>
+                    <span class="map-popup-val">${ports.length ? ports.join(', ') : 'None detected'}</span>
+                </div>
+            </div>
+            ${tagsHtml}
+        </div>
+    `;
+}
+
+function updateMapStats() {
+    const plotted = mapMarkers.length;
+    const malCount = mapMarkers.filter(m => m._isMalicious).length;
+    const countries = mapCountries.size;
+
+    const pEl = $('#map-stat-plotted');
+    const mEl = $('#map-stat-malicious');
+    const cEl = $('#map-stat-countries');
+    if (pEl) pEl.textContent = plotted;
+    if (mEl) mEl.textContent = malCount;
+    if (cEl) cEl.textContent = countries;
+}
+
 function plotIPOnMap(report) {
     if (!threatMap) initMap();
-    // Use a free IP geolocation API to get lat/lng
     const ip = report.ip;
+    const cls = report.risk.classification;
+    const isMalicious = cls === 'Malicious' || cls === 'Likely Malicious';
+    const color = getMarkerColor(cls);
+
     fetch(`https://ipapi.co/${ip}/json/`)
         .then(r => r.ok ? r.json() : null)
         .then(data => {
             if (!data || !data.latitude) return;
-            const cls = report.risk.classification;
-            const color = cls === 'Malicious' ? '#ef4444' : cls === 'Likely Malicious' ? '#f97316' : cls === 'Suspicious' ? '#eab308' : '#22c55e';
-            const marker = L.circleMarker([data.latitude, data.longitude], {
-                radius: 8, fillColor: color, color: '#fff', weight: 1, opacity: 0.9, fillOpacity: 0.8,
-            }).addTo(threatMap);
-            marker.bindPopup(`<b>${ip}</b><br>Score: ${report.risk.score}<br>${cls}<br>${data.city || ''}, ${data.country_name || ''}`);
+
+            if (data.country_name) mapCountries.add(data.country_name);
+
+            const icon = createPulsingIcon(color, isMalicious);
+            const marker = L.marker([data.latitude, data.longitude], { icon }).addTo(threatMap);
+            marker._isMalicious = isMalicious;
+
+            const popupContent = buildPopupContent(report, data);
+            marker.bindPopup(popupContent, { maxWidth: 340, minWidth: 280 });
+
+            // Tooltip on hover showing IP and score
+            marker.bindTooltip(`${ip} — ${report.risk.score}`, {
+                className: 'map-tooltip-custom',
+                direction: 'top',
+                offset: [0, -12],
+            });
+
             mapMarkers.push(marker);
+            updateMapStats();
             $('#map-section').classList.add('visible');
+
+            // Inject geolocation data into the matching report card
+            const cards = document.querySelectorAll('.ip-card');
+            for (const card of cards) {
+                const ipEl = card.querySelector('.ip-card-ip');
+                if (ipEl && ipEl.textContent.trim() === ip) {
+                    const geoSlot = card.querySelector('.geo-inject');
+                    if (geoSlot) {
+                        geoSlot.innerHTML = `
+                            <div class="detail-row"><span class="key">City</span><span class="val">${escHtml(data.city || '—')}, ${escHtml(data.region || '')}</span></div>
+                            <div class="detail-row"><span class="key">Coordinates</span><span class="val" style="font-family:var(--mono);font-size:0.8rem;">${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}</span></div>
+                            <div class="detail-row"><span class="key">ISP</span><span class="val">${escHtml(data.org || '—')}</span></div>
+                            <div class="detail-row"><span class="key">Timezone</span><span class="val">${escHtml(data.timezone || '—')}</span></div>
+                        `;
+                    }
+                    break;
+                }
+            }
         }).catch(() => {});
 }
 
@@ -769,6 +1216,8 @@ function clearMap() {
     if (!threatMap) return;
     mapMarkers.forEach(m => threatMap.removeLayer(m));
     mapMarkers = [];
+    mapCountries.clear();
+    updateMapStats();
     $('#map-section').classList.remove('visible');
 }
 
@@ -794,6 +1243,7 @@ function expandCIDR(cidr) {
 document.addEventListener('DOMContentLoaded', () => {
     loadKeys();
     initMap();
+    renderHistoryList();
 
     els.btnSettings.addEventListener('click', () => els.settingsModal.classList.add('open'));
     els.btnCloseSettings.addEventListener('click', () => els.settingsModal.classList.remove('open'));
@@ -832,4 +1282,43 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#btn-export-csv').addEventListener('click', exportCSV);
     $('#btn-export-html').addEventListener('click', exportHTML);
     $('#btn-export-pdf').addEventListener('click', exportPDF);
+
+    // Phase 3 additions event bindings
+    if (els.btnHistory) {
+        els.btnHistory.addEventListener('click', () => {
+            renderHistoryList();
+            els.historyDrawer.classList.add('open');
+            els.drawerOverlay.classList.add('open');
+        });
+    }
+
+    if (els.btnCloseHistory) {
+        els.btnCloseHistory.addEventListener('click', () => {
+            els.historyDrawer.classList.remove('open');
+            els.drawerOverlay.classList.remove('open');
+        });
+    }
+
+    if (els.drawerOverlay) {
+        els.drawerOverlay.addEventListener('click', () => {
+            els.historyDrawer.classList.remove('open');
+            els.drawerOverlay.classList.remove('open');
+        });
+    }
+
+    if (els.historySearch) {
+        els.historySearch.addEventListener('input', renderHistoryList);
+    }
+
+    if (els.reportSearch) {
+        els.reportSearch.addEventListener('input', applyFilters);
+    }
+
+    if (els.filterClassification) {
+        els.filterClassification.addEventListener('change', applyFilters);
+    }
+
+    if (els.btnClearFilter) {
+        els.btnClearFilter.addEventListener('click', clearActiveFilter);
+    }
 });

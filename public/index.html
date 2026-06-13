@@ -36,11 +36,34 @@
                 </span>
                 IP Intel
             </h1>
-            <button class="btn-settings" id="btn-settings" title="Settings">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> <span>Keys & Settings</span>
-            </button>
+            <div class="header-actions">
+                <button class="btn-history" id="btn-history" title="History">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> <span>Scan History</span>
+                </button>
+                <button class="btn-settings" id="btn-settings" title="Settings">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> <span>Keys & Settings</span>
+                </button>
+            </div>
         </div>
     </header>
+
+    <!-- Scan History Drawer -->
+    <div class="drawer-overlay" id="drawer-overlay"></div>
+    <div class="drawer glass-panel" id="history-drawer">
+        <div class="drawer-header">
+            <h2>Scan History</h2>
+            <button class="drawer-close" id="btn-close-history">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="search-wrap">
+                <input type="text" id="history-search" placeholder="Search history..." autocomplete="off">
+            </div>
+            <div class="history-list" id="history-list">
+                <div class="empty-history">No history records loaded.</div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Settings Modal -->
     <div class="modal-overlay" id="settings-modal">
@@ -153,14 +176,42 @@
             </div>
         </div>
 
+        <!-- Campaign Correlation Panel -->
+        <div class="glass-panel campaign-bar" id="campaign-bar" style="display: none;">
+            <div class="campaign-title">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <span>Campaign Correlation</span>
+            </div>
+            <div class="campaign-tags-list" id="campaign-tags-list"></div>
+        </div>
+
         <!-- Results Area -->
         <div class="controls-header" id="controls-header">
-            <h3 style="font-family: var(--font-head); color: var(--text-bright); font-size: 1.25rem;">Intelligence Reports</h3>
-            <div class="export-group">
-                <button class="btn-export" id="btn-export-pdf">PDF</button>
-                <button class="btn-export" id="btn-export-json">JSON</button>
-                <button class="btn-export" id="btn-export-csv">CSV</button>
-                <button class="btn-export" id="btn-export-html">HTML</button>
+            <div class="reports-title-area">
+                <h3 style="font-family: var(--font-head); color: var(--text-bright); font-size: 1.25rem;">Intelligence Reports</h3>
+                <div class="filter-status-chip" id="filter-status-chip" style="display: none;">
+                    <span id="filter-chip-text">Active Filter</span>
+                    <button class="btn-clear-filter" id="btn-clear-filter">&times;</button>
+                </div>
+            </div>
+            <div class="search-filter-group">
+                <div class="search-box-wrap">
+                    <input type="text" id="report-search" placeholder="Search IP, Org, ASN, Country..." autocomplete="off">
+                </div>
+                <select class="select-filter" id="filter-classification">
+                    <option value="all">All Classifications</option>
+                    <option value="benign">Benign</option>
+                    <option value="suspicious">Suspicious</option>
+                    <option value="likely malicious">Likely Malicious</option>
+                    <option value="malicious">Malicious</option>
+                    <option value="insufficient data">Insufficient Data</option>
+                </select>
+                <div class="export-group">
+                    <button class="btn-export" id="btn-export-pdf">PDF</button>
+                    <button class="btn-export" id="btn-export-json">JSON</button>
+                    <button class="btn-export" id="btn-export-csv">CSV</button>
+                    <button class="btn-export" id="btn-export-html">HTML</button>
+                </div>
             </div>
         </div>
 
@@ -180,16 +231,28 @@
     <section class="map-section" id="map-section">
         <div class="glass-panel map-panel">
             <div class="map-header">
-                <h3>Global Threat Map</h3>
-                <span class="map-legend">
-                    <span class="legend-dot benign"></span> Benign
-                    <span class="legend-dot suspicious"></span> Suspicious
-                    <span class="legend-dot malicious"></span> Malicious
-                </span>
+                <h3>
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align: -3px; margin-right: 0.4rem;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Global Threat Map
+                </h3>
+                <div class="map-stats">
+                    <span class="map-stat"><span class="map-stat-val" id="map-stat-plotted">0</span> Plotted</span>
+                    <span class="map-stat map-stat-mal"><span class="map-stat-val" id="map-stat-malicious">0</span> Malicious</span>
+                    <span class="map-stat"><span class="map-stat-val" id="map-stat-countries">0</span> Countries</span>
+                </div>
+            </div>
+            <div class="map-legend-bar">
+                <span class="map-legend-item"><span class="legend-dot benign"></span> Benign</span>
+                <span class="map-legend-item"><span class="legend-dot suspicious"></span> Suspicious</span>
+                <span class="map-legend-item"><span class="legend-dot likely-mal"></span> Likely Malicious</span>
+                <span class="map-legend-item"><span class="legend-dot malicious"></span> Malicious</span>
             </div>
             <div id="threat-map"></div>
         </div>
     </section>
+
+    <!-- Floating Rate Limit Toasts -->
+    <div class="rate-limit-toasts" id="rate-limit-toasts"></div>
 
     <footer class="footer">
         <div class="footer-bottom">

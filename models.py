@@ -72,6 +72,16 @@ class DNSInfo(BaseModel):
     aliases: list[str] = Field(default_factory=list)
 
 
+# ── Passive DNS ───────────────────────────────────────────────────────────────
+
+
+class PassiveDNSEntry(BaseModel):
+    """A single passive DNS resolution record."""
+
+    hostname: str
+    resolved_date: Optional[str] = None  # ISO date string from VT
+
+
 # ── Threat intelligence results ───────────────────────────────────────────────
 
 
@@ -84,6 +94,7 @@ class VirusTotalResult(BaseModel):
     undetected: int = 0
     reputation: int = 0
     historic_domains: list[str] = Field(default_factory=list)
+    passive_dns: list[PassiveDNSEntry] = Field(default_factory=list)
     as_owner: Optional[str] = None
     country: Optional[str] = None
     available: bool = True  # False if API key missing or query failed
@@ -227,6 +238,9 @@ class IPIntelligenceReport(BaseModel):
 
     # Risk assessment
     risk: RiskScore = Field(default_factory=RiskScore)
+
+    # Campaign correlation
+    campaign_tags: list[str] = Field(default_factory=list)
 
     # Metadata
     errors: list[str] = Field(default_factory=list)

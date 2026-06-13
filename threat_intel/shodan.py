@@ -16,6 +16,7 @@ from config import settings
 from models import ShodanResult, ShodanService
 from utils.http_client import rate_limited_get, shodan_limiter
 from utils.logger import get_logger
+from utils.rate_tracker import get_tracker
 
 log = get_logger("shodan")
 
@@ -53,6 +54,7 @@ async def _query_shodan_api(
         log.debug("Querying Shodan API for %s", ip)
         response = await rate_limited_get(
             client, url, shodan_limiter, params=params,
+            tracker=get_tracker("shodan"),
         )
         data = response.json()
 

@@ -15,7 +15,9 @@ import datetime
 import httpx
 
 from models import AlienVaultResult, OTXPulseAssessment
+from utils.http_client import rate_limited_get, alienvault_limiter
 from utils.logger import get_logger
+from utils.rate_tracker import get_tracker
 
 log = get_logger("alienvault")
 
@@ -56,8 +58,8 @@ async def query_alienvault(
         malware_url = f"{_BASE_URL}/{ip}/malware"
 
         import asyncio
-        gen_task = client.get(general_url, headers=headers)
-        mal_task = client.get(malware_url, headers=headers)
+        gen_task = rate_limited_get(client, general_url, alienvault_limiter, headers=headers, tracker=get_tracker("alienvault"))
+        mal_task = rate_limited_get(client, malware_url, alienvault_limiter, headers=headers, tracker=get_tracker("alienvault"))
 
         responses = await asyncio.gather(gen_task, mal_task, return_exceptions=True)
 

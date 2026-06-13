@@ -8,6 +8,7 @@ from config import settings
 from models import AbuseIPDBResult
 from utils.http_client import abuseipdb_limiter, rate_limited_get
 from utils.logger import get_logger
+from utils.rate_tracker import get_tracker
 
 log = get_logger("abuseipdb")
 
@@ -56,6 +57,7 @@ async def query_abuseipdb(
         response = await rate_limited_get(
             client, _BASE_URL, abuseipdb_limiter,
             headers=headers, params=params,
+            tracker=get_tracker("abuseipdb"),
         )
         body = response.json()
         data = body.get("data", {})
