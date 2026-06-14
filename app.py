@@ -310,5 +310,10 @@ if _public_dir.exists():
     async def serve_static(filename: str):
         file_path = _public_dir / filename
         if file_path.exists() and file_path.is_file():
-            return FileResponse(str(file_path))
+            headers = {
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+            return FileResponse(str(file_path), headers=headers)
         return HTMLResponse(status_code=404, content="Not Found")
