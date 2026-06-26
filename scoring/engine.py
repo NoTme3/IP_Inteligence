@@ -436,6 +436,125 @@ def compute_risk_score(report: IPIntelligenceReport) -> RiskScore:
                 f"This is associative, not direct evidence of maliciousness."
             )
 
+    # ── Sanctions Cross-Check ─────────────────────────────────────────────
+
+    if report.sanctions.is_sanctioned and report.sanctions.match_score >= 0.85:
+        sources_malicious.append("sanctions")
+        signals.append(ScoringSignal(
+            name="OFAC/SDN Sanctioned Entity",
+            weight=40,
+            reason=f"Organization matches sanctioned entity '{report.sanctions.matched_entity}' "
+                   f"(confidence: {report.sanctions.match_score:.0%}, program: {report.sanctions.sanctions_program})",
+            category=SignalCategory.DIRECT_MALICIOUS,
+        ))
+        reasoning_chain.append(
+            f"CRITICAL: Network registrant matches OFAC SDN sanctioned entity "
+            f"'{report.sanctions.matched_entity}' with {report.sanctions.match_score:.0%} confidence. "
+            f"This is a strong indicator of prohibited infrastructure."
+        )
+
+    # ── Country Risk ──────────────────────────────────────────────────────
+
+    country_risk = report.country_risk
+    if country_risk.risk_tier == "critical":
+        signals.append(ScoringSignal(
+            name="Critical Country Risk",
+            weight=15,
+            reason=f"IP located in sanctioned/embargoed country: {country_risk.risk_label}. "
+                   f"Factors: {', '.join(country_risk.factors[:3])}",
+            category=SignalCategory.CONTEXTUAL,
+        ))
+        reasoning_chain.append(f"Geopolitical context: {country_risk.risk_label}. {'; '.join(country_risk.factors[:2])}.")
+    elif country_risk.risk_tier == "high":
+        signals.append(ScoringSignal(
+            name="High Country Risk",
+            weight=8,
+            reason=f"IP in high-risk country: {country_risk.risk_label}. "
+                   f"Factors: {', '.join(country_risk.factors[:3])}",
+            category=SignalCategory.CONTEXTUAL,
+        ))
+        reasoning_chain.append(f"Geopolitical context: {country_risk.risk_label}.")
+    elif country_risk.risk_tier == "medium":
+        signals.append(ScoringSignal(
+            name="Elevated Country Risk",
+            weight=3,
+            reason=f"IP in medium-risk country: {country_risk.risk_label}",
+            category=SignalCategory.CONTEXTUAL,
+        ))
+
+    # ── SSL/TLS Certificate Signals ───────────────────────────────────────
+
+    ssl_result = report.ssl
+    if ssl_result.has_ssl:
+        if ssl_result.is_expired:
+            signals.append(ScoringSignal(
+                name="Expired SSL Certificate",
+                weight=8,
+                reason=f"TLS certificate expired on {ssl_result.not_after}. "
+                       f"Expired certs are common on abandoned or malicious infrastructure.",
+                category=SignalCategory.INFRASTRUCTURE,
+            ))
+            reasoning_chain.append(
+                f"Infrastructure signal: SSL certificate expired ({ssl_result.not_after}). "
+                f"Legitimate operators typically renew certificates before expiry."
+            )
+        if ssl_result.is_self_signed:
+            signals.append(ScoringSignal(
+                name="Self-Signed Certificate",
+                weight=5,
+                reason="TLS certificate is self-signed (no trusted CA). "
+                       "Common in C2 servers and phishing infrastructure.",
+                category=SignalCategory.INFRASTRUCTURE,
+            ))
+    elif shodan.available and shodan.open_ports and 443 in shodan.open_ports:
+        # Port 443 is open but no valid TLS — suspicious
+        signals.append(ScoringSignal(
+            name="No SSL on Port 443",
+            weight=3,
+            reason="Port 443 is open but no valid TLS certificate was found",
+            category=SignalCategory.INFRASTRUCTURE,
+        ))
+
+    # ── Forward-Confirmed Reverse DNS ─────────────────────────────────────
+
+    dns_info = report.dns
+    if dns_info.ptr and dns_info.fcrdns_valid is False:
+        signals.append(ScoringSignal(
+            name="FCrDNS Failure",
+            weight=5,
+            reason=f"PTR record '{dns_info.ptr}' does not resolve back to {report.ip}. "
+                   f"This means the IP does not legitimately belong to the claimed domain.",
+            category=SignalCategory.CONTEXTUAL,
+        ))
+        reasoning_chain.append(
+            f"DNS anomaly: Forward-Confirmed Reverse DNS failed for {dns_info.ptr}. "
+            f"Legitimate infrastructure typically passes FCrDNS validation."
+        )
+
+    # ── CVE Severity Boost ────────────────────────────────────────────────
+
+    if report.cve_details:
+        critical_count = sum(1 for c in report.cve_details if c.severity == "CRITICAL")
+        high_count = sum(1 for c in report.cve_details if c.severity == "HIGH")
+
+        if critical_count > 0:
+            weight = min(15, critical_count * 5)
+            cve_names = ", ".join(c.cve_id for c in report.cve_details if c.severity == "CRITICAL")[:80]
+            signals.append(ScoringSignal(
+                name="Critical CVEs Detected",
+                weight=weight,
+                reason=f"{critical_count} critical-severity CVE(s) confirmed via NVD: {cve_names}",
+                category=SignalCategory.DIRECT_MALICIOUS,
+            ))
+        if high_count > 0:
+            weight = min(9, high_count * 3)
+            signals.append(ScoringSignal(
+                name="High-Severity CVEs Detected",
+                weight=weight,
+                reason=f"{high_count} high-severity CVE(s) confirmed via NVD",
+                category=SignalCategory.CONTEXTUAL,
+            ))
+
     # ── Step 3: Data Completeness ─────────────────────────────────────────
 
     data_completeness = _compute_data_completeness(report)

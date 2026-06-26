@@ -66,10 +66,17 @@ class OwnershipInfo(BaseModel):
 
 
 class DNSInfo(BaseModel):
-    """Reverse DNS (PTR) information."""
+    """Reverse DNS (PTR) and full DNS record information."""
 
     ptr: Optional[str] = None
     aliases: list[str] = Field(default_factory=list)
+    # Full DNS records (populated when PTR resolves to a domain)
+    a_records: list[str] = Field(default_factory=list)
+    aaaa_records: list[str] = Field(default_factory=list)
+    mx_records: list[str] = Field(default_factory=list)
+    ns_records: list[str] = Field(default_factory=list)
+    txt_records: list[str] = Field(default_factory=list)
+    fcrdns_valid: Optional[bool] = None  # Forward-Confirmed Reverse DNS
 
 
 # ── Passive DNS ───────────────────────────────────────────────────────────────
@@ -80,6 +87,61 @@ class PassiveDNSEntry(BaseModel):
 
     hostname: str
     resolved_date: Optional[str] = None  # ISO date string from VT
+
+
+# ── Sanctions ─────────────────────────────────────────────────────────────────
+
+
+class SanctionsResult(BaseModel):
+    """OFAC / OpenSanctions cross-check result."""
+
+    is_sanctioned: bool = False
+    matched_entity: str = ""
+    match_score: float = 0.0
+    sanctions_program: str = ""
+
+
+# ── SSL/TLS ───────────────────────────────────────────────────────────────────
+
+
+class SSLResult(BaseModel):
+    """SSL/TLS certificate inspection result."""
+
+    has_ssl: bool = False
+    issuer: str = ""
+    subject: str = ""
+    sans: list[str] = Field(default_factory=list)
+    not_before: Optional[str] = None
+    not_after: Optional[str] = None
+    is_expired: bool = False
+    is_self_signed: bool = False
+    key_size: int = 0
+    serial_number: str = ""
+    signature_algorithm: str = ""
+
+
+# ── CVE Details ───────────────────────────────────────────────────────────────
+
+
+class CVEDetail(BaseModel):
+    """Enriched CVE detail from NVD."""
+
+    cve_id: str
+    cvss_score: float = 0.0
+    severity: str = ""  # CRITICAL, HIGH, MEDIUM, LOW
+    description: str = ""
+    affected_products: list[str] = Field(default_factory=list)
+
+
+# ── Country Risk ──────────────────────────────────────────────────────────────
+
+
+class CountryRiskInfo(BaseModel):
+    """Geopolitical risk assessment for the IP's country."""
+
+    risk_tier: str = "unknown"  # critical, high, medium, low, minimal
+    risk_label: str = ""
+    factors: list[str] = Field(default_factory=list)
 
 
 # ── Threat intelligence results ───────────────────────────────────────────────
@@ -235,6 +297,12 @@ class IPIntelligenceReport(BaseModel):
     shodan: ShodanResult = Field(default_factory=ShodanResult)
     greynoise: GreyNoiseResult = Field(default_factory=GreyNoiseResult)
     alienvault: AlienVaultResult = Field(default_factory=AlienVaultResult)
+
+    # New enrichment layers
+    sanctions: SanctionsResult = Field(default_factory=SanctionsResult)
+    ssl: SSLResult = Field(default_factory=SSLResult)
+    cve_details: list[CVEDetail] = Field(default_factory=list)
+    country_risk: CountryRiskInfo = Field(default_factory=CountryRiskInfo)
 
     # Risk assessment
     risk: RiskScore = Field(default_factory=RiskScore)

@@ -248,6 +248,10 @@ function renderCard(report, index) {
     const dns = r.dns || {};
     const gn = r.greynoise || {};
     const otx = r.alienvault || {};
+    const sanctions = r.sanctions || {};
+    const sslInfo = r.ssl || {};
+    const cveDetails = r.cve_details || [];
+    const countryRisk = r.country_risk || {};
 
     let servicesHtml = '';
     if (shodan.services && shodan.services.length > 0) {
@@ -344,9 +348,11 @@ function renderCard(report, index) {
                 <span class="ip-card-ip">${escHtml(r.ip)}</span>
                 <div class="ip-card-tags">
                     ${own.country && own.country.toLowerCase() !== 'unknown' ? `<span class="tag tag-country">${escHtml(own.country)}</span>` : ''}
+                    ${countryRisk.risk_tier && countryRisk.risk_tier !== 'minimal' && countryRisk.risk_tier !== 'unknown' ? `<span class="tag tag-risk-${countryRisk.risk_tier}">${countryRisk.risk_tier === 'critical' ? '🔴' : countryRisk.risk_tier === 'high' ? '🟠' : '🟡'} ${escHtml(countryRisk.risk_tier).toUpperCase()} RISK</span>` : ''}
                     ${own.asn ? `<span class="tag tag-asn">AS${escHtml(own.asn)}</span>` : ''}
                     ${own.org && own.org.toLowerCase() !== 'unknown' ? `<span class="tag tag-org">${escHtml(own.org)}</span>` : ''}
                     ${infraType && infraType !== 'unknown' ? `<span class="tag tag-infra">${infraLabel(infraType)}</span>` : ''}
+                    ${sanctions.is_sanctioned ? `<span class="tag tag-sanctioned">⚠️ SANCTIONED</span>` : ''}
                 </div>
                 ${r.campaign_tags && r.campaign_tags.length > 0 ? `
                     <div class="ip-header-tags">
@@ -367,6 +373,14 @@ function renderCard(report, index) {
             </div>
         </div>
         <div class="ip-card-details">
+            ${sanctions.is_sanctioned ? `
+            <div class="sanctions-alert">
+                <div class="sanctions-alert-icon">⚠️</div>
+                <div class="sanctions-alert-body">
+                    <div class="sanctions-alert-title">OFAC SDN — Sanctioned Entity Match</div>
+                    <div class="sanctions-alert-detail">Matched: <strong>${escHtml(sanctions.matched_entity)}</strong> (${(sanctions.match_score * 100).toFixed(0)}% confidence) — ${escHtml(sanctions.sanctions_program)}</div>
+                </div>
+            </div>` : ''}
             <div class="ip-summary-banner">
                 <div class="summary-icon">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -382,6 +396,8 @@ function renderCard(report, index) {
                     <div class="detail-row"><span class="key">Country</span><span class="val">${escHtml(own.country || '—')}</span></div>
                     <div class="detail-row"><span class="key">Registry</span><span class="val">${escHtml(own.rir || '—')}</span></div>
                     <div class="detail-row"><span class="key">PTR Record</span><span class="val">${escHtml(dns.ptr || '—')}</span></div>
+                    ${dns.fcrdns_valid != null ? `<div class="detail-row"><span class="key">FCrDNS</span><span class="val" style="color:${dns.fcrdns_valid ? '#34d399' : '#f87171'}">${dns.fcrdns_valid ? '✅ PASS' : '❌ FAIL'}</span></div>` : ''}
+                    ${countryRisk.risk_tier && countryRisk.risk_tier !== 'unknown' ? `<div class="detail-row"><span class="key">Country Risk</span><span class="val tag-risk-inline tag-risk-${countryRisk.risk_tier}">${escHtml(countryRisk.risk_label || countryRisk.risk_tier)}</span></div>` : ''}
                     <div class="geo-inject" style="border-top:1px dashed rgba(255,255,255,0.06);margin-top:0.6rem;padding-top:0.6rem;">
                         <div class="detail-row" style="opacity:0.4;"><span class="key">Coordinates</span><span class="val" style="font-style:italic;">Loading…</span></div>
                     </div>
@@ -455,6 +471,44 @@ function renderCard(report, index) {
                         ${otx.pulse_names && otx.pulse_names.length ? `<div style="margin-top:0.8rem;"><div class="key" style="margin-bottom:0.2rem;">Threat Campaigns</div><div class="domain-list">${otx.pulse_names.map(p=>escHtml(p)).join(', ')}</div></div>` : ''}
                     ` : `<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">OTX data unavailable</div>`}
                 </div>
+
+                ${sslInfo.has_ssl ? `
+                <div class="detail-section">
+                    <h4>🔒 SSL/TLS Certificate ${helpTip('TLS certificate details from port 443. Expired or self-signed certificates are strong indicators of malicious infrastructure.')}</h4>
+                    <div class="detail-row"><span class="key">Issuer</span><span class="val">${escHtml(sslInfo.issuer || '—')}</span></div>
+                    <div class="detail-row"><span class="key">Subject</span><span class="val">${escHtml(sslInfo.subject || '—')}</span></div>
+                    <div class="detail-row"><span class="key">Valid From</span><span class="val">${escHtml(sslInfo.not_before || '—')}</span></div>
+                    <div class="detail-row"><span class="key">Valid Until</span><span class="val" style="color:${sslInfo.is_expired ? '#f87171' : 'var(--text-bright)'}">${escHtml(sslInfo.not_after || '—')} ${sslInfo.is_expired ? '⚠️ EXPIRED' : ''}</span></div>
+                    ${sslInfo.is_self_signed ? `<div class="detail-row"><span class="key">Self-Signed</span><span class="val" style="color:#f87171">⚠️ Yes — No trusted CA</span></div>` : ''}
+                    <div class="detail-row"><span class="key">Key Size</span><span class="val">${sslInfo.key_size || '—'} bits</span></div>
+                    <div class="detail-row"><span class="key">Algorithm</span><span class="val">${escHtml(sslInfo.signature_algorithm || '—')}</span></div>
+                    ${sslInfo.sans && sslInfo.sans.length ? `<div style="margin-top:0.8rem;"><div class="key" style="margin-bottom:0.2rem;">Subject Alt Names (${sslInfo.sans.length})</div><div class="domain-list">${sslInfo.sans.map(s => escHtml(s)).join(', ')}</div></div>` : ''}
+                </div>` : ''}
+
+                ${cveDetails.length ? `
+                <div class="detail-section">
+                    <h4>🛡️ CVE Intelligence (${cveDetails.length}) ${helpTip('Enriched vulnerability details from the National Vulnerability Database (NVD). Shows CVSS scores, severity, and descriptions for CVEs found on this host.')}</h4>
+                    ${cveDetails.map(cve => `
+                        <div class="cve-card cve-${cve.severity.toLowerCase()}">
+                            <div class="cve-header">
+                                <span class="cve-id">${escHtml(cve.cve_id)}</span>
+                                <span class="cve-badge cve-badge-${cve.severity.toLowerCase()}">${cve.cvss_score.toFixed(1)} ${escHtml(cve.severity)}</span>
+                            </div>
+                            ${cve.description ? `<div class="cve-desc">${escHtml(cve.description)}</div>` : ''}
+                            ${cve.affected_products && cve.affected_products.length ? `<div class="cve-products">${cve.affected_products.map(p => `<span class="cve-product-tag">${escHtml(p)}</span>`).join('')}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>` : ''}
+
+                ${dns.a_records && dns.a_records.length || dns.mx_records && dns.mx_records.length || dns.txt_records && dns.txt_records.length ? `
+                <div class="detail-section">
+                    <h4>📡 Full DNS Records ${helpTip('Complete DNS record enumeration for the PTR hostname. Includes A, AAAA, MX, NS, and TXT records. FCrDNS (Forward-Confirmed Reverse DNS) validates IP ownership.')}</h4>
+                    ${dns.a_records && dns.a_records.length ? `<div class="detail-row"><span class="key">A Records</span><span class="val">${dns.a_records.map(r => escHtml(r)).join(', ')}</span></div>` : ''}
+                    ${dns.aaaa_records && dns.aaaa_records.length ? `<div class="detail-row"><span class="key">AAAA Records</span><span class="val">${dns.aaaa_records.map(r => escHtml(r)).join(', ')}</span></div>` : ''}
+                    ${dns.mx_records && dns.mx_records.length ? `<div class="detail-row"><span class="key">MX Records</span><span class="val">${dns.mx_records.map(r => escHtml(r)).join(', ')}</span></div>` : ''}
+                    ${dns.ns_records && dns.ns_records.length ? `<div class="detail-row"><span class="key">NS Records</span><span class="val">${dns.ns_records.map(r => escHtml(r)).join(', ')}</span></div>` : ''}
+                    ${dns.txt_records && dns.txt_records.length ? `<div style="margin-top:0.8rem;"><div class="key" style="margin-bottom:0.2rem;">TXT Records</div><div class="domain-list" style="font-size:0.75rem;">${dns.txt_records.map(r => escHtml(r)).join('<br>')}</div></div>` : ''}
+                </div>` : ''}
 
                 <div class="detail-section" style="grid-column: 1 / -1;">
                     <h4>Feed Intelligence Confidence ${helpTip('Visual representation of the reliability weight assigned to each intelligence source. Higher confidence sources have more impact on the final score.')}</h4>
@@ -878,6 +932,15 @@ async function analyze() {
 
         // Final Sort & Render Stagger
         state.reports.sort((a, b) => b.risk.score - a.risk.score);
+        
+        // Re-render everything in sorted order
+        els.resultsContainer.innerHTML = '';
+        clearMap();
+        state.reports.forEach((r, i) => {
+            els.resultsContainer.appendChild(renderCard(r, i));
+            plotIPOnMap(r);
+        });
+
         updateCampaignBar();
         updateSummary();
 
@@ -1038,29 +1101,149 @@ function exportPDF() {
     doc.save(`ip_intel_report_${new Date().toISOString().slice(0,10)}.pdf`);
 }
 
-// ── Threat Map (Leaflet.js) — Enhanced ───────────────────────────────────
+// ── Threat Map (MapLibre GL) — Enhanced ────────────────────────────────────
 let threatMap = null;
-let mapMarkers = [];
+let geojsonSource = {
+    type: 'FeatureCollection',
+    features: []
+};
 let mapCountries = new Set();
+let activePopup = null;
 
 function initMap() {
     if (threatMap) return;
-    threatMap = L.map('threat-map', {
-        zoomControl: true,
-        attributionControl: false,
-        zoomSnap: 0.5,
-    }).setView([20, 0], 2);
+    
+    threatMap = new maplibregl.Map({
+        container: 'threat-map',
+        style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+        center: [0, 20],
+        zoom: 2,
+        attributionControl: false
+    });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 18,
-    }).addTo(threatMap);
-}
+    threatMap.addControl(new maplibregl.NavigationControl(), 'top-left');
 
-function getMarkerColor(cls) {
-    if (cls === 'Malicious') return '#ef4444';
-    if (cls === 'Likely Malicious') return '#f97316';
-    if (cls === 'Suspicious') return '#eab308';
-    return '#22c55e';
+    threatMap.on('load', () => {
+        // Add a clustered GeoJSON source
+        threatMap.addSource('threat-ips', {
+            type: 'geojson',
+            data: geojsonSource,
+            cluster: true,
+            clusterMaxZoom: 14,
+            clusterRadius: 50 // Radius of each cluster
+        });
+
+        // Layer 1: Cluster circles
+        threatMap.addLayer({
+            id: 'clusters',
+            type: 'circle',
+            source: 'threat-ips',
+            filter: ['has', 'point_count'],
+            paint: {
+                'circle-color': [
+                    'step',
+                    ['get', 'point_count'],
+                    '#3b82f6', // blue for < 5
+                    5,
+                    '#8b5cf6', // purple for < 15
+                    15,
+                    '#ef4444'  // red for >= 15
+                ],
+                'circle-radius': [
+                    'step',
+                    ['get', 'point_count'],
+                    15, // size for < 5
+                    5,
+                    20, // size for < 15
+                    15,
+                    25  // size for >= 15
+                ],
+                'circle-opacity': 0.8,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff'
+            }
+        });
+
+        // Layer 2: Cluster counts
+        threatMap.addLayer({
+            id: 'cluster-count',
+            type: 'symbol',
+            source: 'threat-ips',
+            filter: ['has', 'point_count'],
+            layout: {
+                'text-field': '{point_count_abbreviated}',
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-size': 12
+            },
+            paint: {
+                'text-color': '#ffffff'
+            }
+        });
+
+        // Layer 3: Unclustered points
+        threatMap.addLayer({
+            id: 'unclustered-point',
+            type: 'circle',
+            source: 'threat-ips',
+            filter: ['!', ['has', 'point_count']],
+            paint: {
+                'circle-color': [
+                    'match',
+                    ['get', 'risk_level'],
+                    'Malicious', '#ef4444',
+                    'Likely Malicious', '#f97316',
+                    'Suspicious', '#eab308',
+                    /* other */ '#22c55e'
+                ],
+                'circle-radius': [
+                    'match',
+                    ['get', 'risk_level'],
+                    'Malicious', 8,
+                    'Likely Malicious', 7,
+                    /* other */ 6
+                ],
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#ffffff'
+            }
+        });
+
+        // Interaction: Click cluster to zoom in
+        threatMap.on('click', 'clusters', (e) => {
+            const features = threatMap.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+            const clusterId = features[0].properties.cluster_id;
+            threatMap.getSource('threat-ips').getClusterExpansionZoom(clusterId, (err, zoom) => {
+                if (err) return;
+                threatMap.flyTo({
+                    center: features[0].geometry.coordinates,
+                    zoom: zoom
+                });
+            });
+        });
+
+        // Interaction: Click unclustered point to show popup
+        threatMap.on('click', 'unclustered-point', (e) => {
+            const coordinates = e.features[0].geometry.coordinates.slice();
+            const props = e.features[0].properties;
+
+            // Ensure coordinates wrap correctly around the anti-meridian
+            while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+            }
+
+            if (activePopup) activePopup.remove();
+
+            activePopup = new maplibregl.Popup({ closeOnClick: true, maxWidth: '340px' })
+                .setLngLat(coordinates)
+                .setHTML(props.popupHtml)
+                .addTo(threatMap);
+        });
+
+        // Cursor change on hover
+        threatMap.on('mouseenter', 'clusters', () => { threatMap.getCanvas().style.cursor = 'pointer'; });
+        threatMap.on('mouseleave', 'clusters', () => { threatMap.getCanvas().style.cursor = ''; });
+        threatMap.on('mouseenter', 'unclustered-point', () => { threatMap.getCanvas().style.cursor = 'pointer'; });
+        threatMap.on('mouseleave', 'unclustered-point', () => { threatMap.getCanvas().style.cursor = ''; });
+    });
 }
 
 function getScoreBg(cls) {
@@ -1068,30 +1251,6 @@ function getScoreBg(cls) {
     if (cls === 'Likely Malicious') return 'background:rgba(249,115,22,0.2); color:#fb923c;';
     if (cls === 'Suspicious') return 'background:rgba(234,179,8,0.2); color:#fbbf24;';
     return 'background:rgba(34,197,94,0.2); color:#34d399;';
-}
-
-function createPulsingIcon(color, isMalicious) {
-    const size = isMalicious ? 16 : 12;
-    const pulse = isMalicious ? `
-        <circle cx="${size}" cy="${size}" r="${size - 2}" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.6">
-            <animate attributeName="r" from="${size - 2}" to="${size * 2}" dur="2s" repeatCount="indefinite"/>
-            <animate attributeName="opacity" from="0.6" to="0" dur="2s" repeatCount="indefinite"/>
-        </circle>` : '';
-
-    const svg = `
-        <svg width="${size * 2}" height="${size * 2}" viewBox="0 0 ${size * 2} ${size * 2}" xmlns="http://www.w3.org/2000/svg">
-            ${pulse}
-            <circle cx="${size}" cy="${size}" r="${isMalicious ? 7 : 5}" fill="${color}" stroke="#fff" stroke-width="1.5" opacity="0.9"/>
-            <circle cx="${size}" cy="${size}" r="${isMalicious ? 3 : 2}" fill="#fff" opacity="0.6"/>
-        </svg>`;
-
-    return L.divIcon({
-        html: svg,
-        className: '',
-        iconSize: [size * 2, size * 2],
-        iconAnchor: [size, size],
-        popupAnchor: [0, -size],
-    });
 }
 
 function buildPopupContent(report, geoData) {
@@ -1148,8 +1307,8 @@ function buildPopupContent(report, geoData) {
 }
 
 function updateMapStats() {
-    const plotted = mapMarkers.length;
-    const malCount = mapMarkers.filter(m => m._isMalicious).length;
+    const plotted = geojsonSource.features.length;
+    const malCount = geojsonSource.features.filter(f => f.properties.is_malicious).length;
     const countries = mapCountries.size;
 
     const pEl = $('#map-stat-plotted');
@@ -1165,7 +1324,6 @@ function plotIPOnMap(report) {
     const ip = report.ip;
     const cls = report.risk.classification;
     const isMalicious = cls === 'Malicious' || cls === 'Likely Malicious';
-    const color = getMarkerColor(cls);
 
     fetch(`https://ipapi.co/${ip}/json/`)
         .then(r => r.ok ? r.json() : null)
@@ -1174,21 +1332,38 @@ function plotIPOnMap(report) {
 
             if (data.country_name) mapCountries.add(data.country_name);
 
-            const icon = createPulsingIcon(color, isMalicious);
-            const marker = L.marker([data.latitude, data.longitude], { icon }).addTo(threatMap);
-            marker._isMalicious = isMalicious;
-
             const popupContent = buildPopupContent(report, data);
-            marker.bindPopup(popupContent, { maxWidth: 340, minWidth: 280 });
 
-            // Tooltip on hover showing IP and score
-            marker.bindTooltip(`${ip} — ${report.risk.score}`, {
-                className: 'map-tooltip-custom',
-                direction: 'top',
-                offset: [0, -12],
-            });
+            // Add point to GeoJSON source
+            const feature = {
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [data.longitude, data.latitude] // Note: GeoJSON is [lng, lat]
+                },
+                properties: {
+                    ip: ip,
+                    risk_level: cls,
+                    is_malicious: isMalicious,
+                    popupHtml: popupContent
+                }
+            };
+            
+            geojsonSource.features.push(feature);
 
-            mapMarkers.push(marker);
+            // Update map source if it's loaded
+            if (threatMap && threatMap.getSource('threat-ips')) {
+                threatMap.getSource('threat-ips').setData(geojsonSource);
+                
+                // Fly to the newly plotted coordinate
+                threatMap.flyTo({
+                    center: [data.longitude, data.latitude],
+                    zoom: threatMap.getZoom() < 4 ? 4 : threatMap.getZoom(),
+                    essential: true,
+                    speed: 1.5
+                });
+            }
+
             updateMapStats();
             $('#map-section').classList.add('visible');
 
@@ -1213,9 +1388,11 @@ function plotIPOnMap(report) {
 }
 
 function clearMap() {
-    if (!threatMap) return;
-    mapMarkers.forEach(m => threatMap.removeLayer(m));
-    mapMarkers = [];
+    geojsonSource.features = [];
+    if (threatMap && threatMap.getSource('threat-ips')) {
+        threatMap.getSource('threat-ips').setData(geojsonSource);
+    }
+    if (activePopup) activePopup.remove();
     mapCountries.clear();
     updateMapStats();
     $('#map-section').classList.remove('visible');
@@ -1321,4 +1498,74 @@ document.addEventListener('DOMContentLoaded', () => {
     if (els.btnClearFilter) {
         els.btnClearFilter.addEventListener('click', clearActiveFilter);
     }
+
+    // ── Keyboard Shortcuts ───────────────────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+        // Don't intercept when typing in inputs/textareas
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+            if (e.key === 'Escape') {
+                document.activeElement.blur();
+            }
+            return;
+        }
+
+        switch (e.key) {
+            case '/':
+                e.preventDefault();
+                const searchEl = els.reportSearch || $('#ip-input');
+                if (searchEl) searchEl.focus();
+                break;
+            case 'Escape':
+                // Close any open modals/drawers
+                els.settingsModal?.classList.remove('open');
+                els.historyDrawer?.classList.remove('open');
+                els.drawerOverlay?.classList.remove('open');
+                const helpOverlay = $('#shortcut-help-overlay');
+                if (helpOverlay) helpOverlay.style.display = 'none';
+                // Collapse expanded cards
+                document.querySelectorAll('.ip-card.expanded').forEach(c => c.classList.remove('expanded'));
+                break;
+            case 'm':
+            case 'M':
+                e.preventDefault();
+                const mapSection = $('#map-section');
+                if (mapSection) mapSection.scrollIntoView({ behavior: 'smooth' });
+                break;
+            case '?':
+                e.preventDefault();
+                toggleShortcutHelp();
+                break;
+        }
+    });
 });
+
+// ── Keyboard Shortcut Help ───────────────────────────────────────────────
+function toggleShortcutHelp() {
+    let overlay = $('#shortcut-help-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'shortcut-help-overlay';
+        overlay.className = 'shortcut-help-overlay';
+        overlay.innerHTML = `
+            <div class="shortcut-help-panel glass-panel">
+                <div class="shortcut-help-header">
+                    <h3>⌨️ Keyboard Shortcuts</h3>
+                    <button class="modal-close" onclick="document.getElementById('shortcut-help-overlay').style.display='none'">&times;</button>
+                </div>
+                <div class="shortcut-help-body">
+                    <div class="shortcut-row"><kbd>/</kbd><span>Focus search box</span></div>
+                    <div class="shortcut-row"><kbd>Esc</kbd><span>Close modals / collapse cards</span></div>
+                    <div class="shortcut-row"><kbd>M</kbd><span>Scroll to threat map</span></div>
+                    <div class="shortcut-row"><kbd>?</kbd><span>Toggle this help</span></div>
+                    <div class="shortcut-row"><kbd>Ctrl+Enter</kbd><span>Run analysis (when in IP input)</span></div>
+                </div>
+            </div>
+        `;
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.style.display = 'none';
+        });
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
+}

@@ -1067,35 +1067,18 @@ body {
 
 
 
-/* Leaflet overrides for dark theme */
-.leaflet-control-zoom a {
+/* MapLibre overrides for dark theme */
+.maplibregl-ctrl-group {
     background: rgba(17, 24, 39, 0.9) !important;
-    color: #fff !important;
-    border-color: var(--glass-border) !important;
+    border: 1px solid var(--glass-border) !important;
 }
 
-/* Pulsing marker ring */
-@keyframes pulse-ring {
-    0% { transform: scale(1); opacity: 0.8; }
-    70% { transform: scale(2.5); opacity: 0; }
-    100% { transform: scale(2.5); opacity: 0; }
+.maplibregl-ctrl-icon {
+    filter: invert(1);
 }
 
-.pulse-marker {
-    position: relative;
-}
-
-.pulse-marker::after {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 2px solid currentColor;
-    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Rich popup styling */
-.leaflet-popup-content-wrapper {
+/* Rich popup styling for MapLibre */
+.maplibregl-popup-content {
     background: rgba(10, 15, 28, 0.96) !important;
     color: var(--text-bright) !important;
     border-radius: 12px !important;
@@ -1108,20 +1091,12 @@ body {
     overflow: hidden;
 }
 
-.leaflet-popup-content {
-    margin: 0 !important;
-    line-height: 1.5 !important;
-    width: 100% !important;
+.maplibregl-popup-tip {
+    border-top-color: rgba(10, 15, 28, 0.96) !important;
+    border-bottom-color: rgba(10, 15, 28, 0.96) !important;
 }
 
-.leaflet-popup-tip {
-    background: rgba(10, 15, 28, 0.96) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-top: none !important;
-    border-left: none !important;
-}
-
-.leaflet-popup-close-button {
+.maplibregl-popup-close-button {
     color: #94a3b8 !important;
     font-size: 20px !important;
     top: 8px !important;
@@ -1129,8 +1104,9 @@ body {
     z-index: 10;
 }
 
-.leaflet-popup-close-button:hover {
+.maplibregl-popup-close-button:hover {
     color: #f8fafc !important;
+    background: transparent !important;
 }
 
 /* Popup internal structure */
@@ -1714,5 +1690,207 @@ body {
     background: rgba(0, 0, 0, 0.1);
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
+}
+
+/* ── Sanctions Alert Banner ──────────────────────────────────────────────── */
+.sanctions-alert {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    margin: 0 1.5rem 1rem;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-left: 4px solid #ef4444;
+    border-radius: var(--radius-sm);
+    animation: sanctions-pulse 2s ease-in-out infinite;
+}
+@keyframes sanctions-pulse {
+    0%, 100% { border-left-color: #ef4444; }
+    50% { border-left-color: #fbbf24; }
+}
+.sanctions-alert-icon { font-size: 1.5rem; }
+.sanctions-alert-title {
+    font-weight: 700;
+    color: #f87171;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.sanctions-alert-detail {
+    font-size: 0.82rem;
+    color: var(--text-bright);
+    margin-top: 0.2rem;
+}
+
+.tag-sanctioned {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.4) !important;
+    font-weight: 700;
+    animation: sanctions-pulse 2s ease-in-out infinite;
+}
+
+/* ── Country Risk Tags ───────────────────────────────────────────────────── */
+.tag-risk-critical {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    font-weight: 600;
+}
+.tag-risk-high {
+    background: rgba(249, 115, 22, 0.15) !important;
+    color: #fb923c !important;
+    border: 1px solid rgba(249, 115, 22, 0.3) !important;
+    font-weight: 600;
+}
+.tag-risk-medium {
+    background: rgba(234, 179, 8, 0.12) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(234, 179, 8, 0.25) !important;
+}
+.tag-risk-low {
+    background: rgba(34, 197, 94, 0.1) !important;
+    color: #34d399 !important;
+}
+.tag-risk-minimal {
+    color: var(--text-muted) !important;
+}
+.tag-risk-inline {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+/* ── CVE Detail Cards ────────────────────────────────────────────────────── */
+.cve-card {
+    padding: 0.75rem;
+    margin-bottom: 0.6rem;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.2);
+}
+.cve-card.cve-critical { border-left-color: #ef4444; }
+.cve-card.cve-high { border-left-color: #f97316; }
+.cve-card.cve-medium { border-left-color: #eab308; }
+.cve-card.cve-low { border-left-color: #22c55e; }
+
+.cve-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+}
+.cve-id {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--text-bright);
+}
+.cve-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.cve-badge-critical { background: rgba(239,68,68,0.2); color: #f87171; }
+.cve-badge-high { background: rgba(249,115,22,0.2); color: #fb923c; }
+.cve-badge-medium { background: rgba(234,179,8,0.15); color: #fbbf24; }
+.cve-badge-low { background: rgba(34,197,94,0.15); color: #34d399; }
+
+.cve-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+.cve-products {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+}
+.cve-product-tag {
+    font-size: 0.68rem;
+    padding: 0.1rem 0.4rem;
+    background: rgba(96, 165, 250, 0.12);
+    color: #60a5fa;
+    border-radius: 3px;
+    font-family: var(--mono);
+}
+
+/* ── Keyboard Shortcut Help ──────────────────────────────────────────────── */
+.shortcut-help-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+}
+.shortcut-help-panel {
+    max-width: 380px;
+    width: 90%;
+    padding: 1.5rem;
+}
+.shortcut-help-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.2rem;
+}
+.shortcut-help-header h3 {
+    font-family: var(--font-head);
+    font-size: 1.1rem;
+    color: var(--text-bright);
+}
+.shortcut-help-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.shortcut-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.shortcut-row kbd {
+    display: inline-block;
+    min-width: 42px;
+    text-align: center;
+    padding: 0.25rem 0.6rem;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    font-weight: 600;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+}
+.shortcut-row span {
+    font-size: 0.85rem;
+    color: var(--text-bright);
+}
+
+.btn-shortcut-hint {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-shortcut-hint:hover {
+    color: var(--accent);
+    border-color: var(--accent);
 }
 

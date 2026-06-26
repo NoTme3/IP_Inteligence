@@ -17,8 +17,12 @@ from rich.progress import (
 )
 
 from config import Settings, settings
+from enrichment.country_risk import assess_country_risk
 from enrichment.dns import resolve_ptr
+from enrichment.nvd import enrich_cves
 from enrichment.rdap import lookup_rdap
+from enrichment.sanctions import check_sanctions
+from enrichment.ssl_inspect import inspect_ssl
 from models import IPInput, IPIntelligenceReport
 from scoring.engine import compute_risk_score
 from storage.database import Database
@@ -322,6 +326,7 @@ async def enrich_single_web(
 
     report = IPIntelligenceReport(ip=ip, ip_version=version)
 
+    # ── Phase 1: Run all primary enrichment tasks concurrently ──
     rdap_task = lookup_rdap(ip)
     dns_task = resolve_ptr(ip)
     vt_task = query_virustotal(ip, client, api_key=vt_key)
@@ -329,10 +334,11 @@ async def enrich_single_web(
     shodan_task = query_shodan(ip, client, api_key=shodan_key)
     greynoise_task = query_greynoise(ip, client, api_key=greynoise_key)
     alienvault_task = query_alienvault(ip, client, api_key=alienvault_key)
+    ssl_task = inspect_ssl(ip)
 
     results = await asyncio.gather(
         rdap_task, dns_task, vt_task, abuse_task, shodan_task,
-        greynoise_task, alienvault_task,
+        greynoise_task, alienvault_task, ssl_task,
         return_exceptions=True,
     )
 
@@ -371,9 +377,60 @@ async def enrich_single_web(
     else:
         report.errors.append(f"AlienVault: {results[6]}")
 
+    if not isinstance(results[7], Exception):
+        report.ssl = results[7]
+    else:
+        report.errors.append(f"SSL: {results[7]}")
+
+    # ── Phase 2: Dependent enrichment (needs Phase 1 results) ──
+    phase2_tasks = []
+
+    # Sanctions check (needs org/ASN from RDAP)
+    sanctions_task = check_sanctions(
+        org_name=report.ownership.org,
+        asn_owner=report.ownership.asn_description,
+    )
+    phase2_tasks.append(("sanctions", sanctions_task))
+
+    # Country risk (needs country from RDAP or AbuseIPDB)
+    country = (
+        report.ownership.country
+        or report.abuseipdb.country_code
+        or report.virustotal.country
+        or report.alienvault.country
+    )
+    # Country risk is sync but fast — wrap in coroutine
+    async def _get_country_risk():
+        return assess_country_risk(country)
+    phase2_tasks.append(("country_risk", _get_country_risk()))
+
+    # CVE enrichment (needs CVE list from Shodan/GreyNoise)
+    all_cves = list(set(
+        (report.shodan.vulns if report.shodan.available else []) +
+        (report.greynoise.cve if report.greynoise.available else [])
+    ))
+    if all_cves:
+        cve_task = enrich_cves(all_cves, client, max_cves=10)
+        phase2_tasks.append(("cve_details", cve_task))
+
+    # Run Phase 2 in parallel
+    phase2_coros = [t[1] for t in phase2_tasks]
+    phase2_results = await asyncio.gather(*phase2_coros, return_exceptions=True)
+
+    for i, (name, _) in enumerate(phase2_tasks):
+        result = phase2_results[i]
+        if isinstance(result, Exception):
+            report.errors.append(f"{name}: {result}")
+            log.warning("Phase 2 enrichment failed for %s: %s → %s", ip, name, result)
+        elif name == "sanctions":
+            report.sanctions = result
+        elif name == "country_risk":
+            report.country_risk = result
+        elif name == "cve_details":
+            report.cve_details = result
+
     report.risk = compute_risk_score(report)
     report.campaign_tags = _extract_campaign_tags(report)
     report.query_duration_s = round(time.monotonic() - start, 2)
 
     return report
-
