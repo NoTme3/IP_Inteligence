@@ -82,6 +82,4 @@ The scoring engine has been completely refactored to act like a human analyst:
 - **Infrastructure:** Docker, Docker Compose
 - **CLI:** Typer, Rich
 
-## 📝 License
 
-All Rights Reserved.
